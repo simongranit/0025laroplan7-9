@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
-
 from uuid import uuid4
 
 from pydantic import ValidationError

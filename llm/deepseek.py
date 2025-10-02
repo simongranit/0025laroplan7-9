@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import os
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 import httpx
 from jinja2 import Environment
