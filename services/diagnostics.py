@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import uuid4
 
-from llm.deepseek import get_chat_client
+from llm.deepseek import DeepSeekChatClient, get_chat_client
 
 from . import content
 from .models import DiagnosticResult, DiagnosticSubmission, Question, TopicScore
@@ -157,7 +157,7 @@ def _build_curriculum_outline(grade: int, topics: Sequence[str]) -> str:
 
 
 class _DeepSeekDiagnosticGenerator:
-    def __init__(self, client) -> None:  # type: ignore[no-untyped-def]
+    def __init__(self, client: DeepSeekChatClient) -> None:
         self.client = client
 
     async def generate(

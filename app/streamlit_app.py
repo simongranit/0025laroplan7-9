@@ -69,7 +69,7 @@ with st.expander("Skapa ny profil"):
             st.session_state.grade = profile.last_grade
             st.session_state.topic = profile.last_topic
             st.success(f"Profilen '{profile.name}' skapades.")
-            st.experimental_rerun()
+            st.rerun()
 
 if selected_profile:
     st.caption(f"Aktiv profil: {selected_profile.label}")
