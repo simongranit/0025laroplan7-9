@@ -1,15 +1,9 @@
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import streamlit as st
 from dotenv import load_dotenv
 
-ROOT = Path(__file__).resolve().parents[1]
-if (root_str := str(ROOT)) not in sys.path:
-    sys.path.insert(0, root_str)
-
+from app import _bootstrap  # noqa: F401
 from services import content, diagnostics, profiles
 
 load_dotenv()
