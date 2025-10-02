@@ -2,6 +2,28 @@ from __future__ import annotations
 
 import streamlit as st
 
+try:  # pragma: no cover - executed during startup
+    from app import _bootstrap  # noqa: F401
+except ModuleNotFoundError:  # pragma: no cover
+    import importlib.util
+    import sys
+    from pathlib import Path
+    from types import ModuleType
+
+    _app_dir = Path(__file__).resolve().parents[1]
+    _package = ModuleType("app")
+    _package.__path__ = [str(_app_dir)]
+    sys.modules.setdefault("app", _package)
+
+    _spec = importlib.util.spec_from_file_location("app._bootstrap", _app_dir / "_bootstrap.py")
+    if _spec and _spec.loader:
+        _module = importlib.util.module_from_spec(_spec)
+        sys.modules["app._bootstrap"] = _module
+        _spec.loader.exec_module(_module)
+    else:  # pragma: no cover
+        raise
+    from app import _bootstrap  # noqa: F401
+
 from services import profiles
 from services.models import DiagnosticSubmission
 
