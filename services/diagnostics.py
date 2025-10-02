@@ -5,8 +5,8 @@ import json
 import logging
 import random
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from typing import Any
 from uuid import uuid4
 
@@ -36,13 +36,39 @@ class DiagnosticConfig:
         }
 
 
-def generate_diagnostic(grade: int, topics: Sequence[str], config: DiagnosticConfig | None = None) -> list[Question]:
+def generate_diagnostic(
+    grade: int,
+    topics: Sequence[str],
+    config: DiagnosticConfig | None = None,
+    skill_profile: Mapping[str, int] | None = None,
+) -> list[Question]:
     if config is None:
         config = DiagnosticConfig()
-    dynamic_questions = _maybe_generate_dynamic(grade, topics, config)
+    adjusted_config = _adjust_config_for_skill(config, topics, skill_profile)
+    dynamic_questions = _maybe_generate_dynamic(grade, topics, adjusted_config)
     if dynamic_questions:
-        return dynamic_questions[: config.length]
-    return _generate_from_store(grade, topics, config)
+        return dynamic_questions[: adjusted_config.length]
+    return _generate_from_store(grade, topics, adjusted_config)
+
+
+def _adjust_config_for_skill(
+    config: DiagnosticConfig,
+    topics: Sequence[str],
+    skill_profile: Mapping[str, int] | None,
+) -> DiagnosticConfig:
+    if not skill_profile:
+        return config
+    levels = [skill_profile[topic] for topic in topics if topic in skill_profile]
+    if not levels:
+        return config
+    avg_level = sum(levels) / len(levels)
+    if avg_level < 2.5:
+        mix = {"easy": 0.6, "medium": 0.3, "hard": 0.1}
+    elif avg_level < 3.5:
+        mix = {"easy": 0.3, "medium": 0.5, "hard": 0.2}
+    else:
+        mix = {"easy": 0.2, "medium": 0.3, "hard": 0.5}
+    return replace(config, difficulty_mix=mix)
 
 
 def score_submission(submissions: Iterable[DiagnosticSubmission]) -> DiagnosticResult:

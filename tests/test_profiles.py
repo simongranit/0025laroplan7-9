@@ -18,9 +18,15 @@ def test_profile_lifecycle(monkeypatch, tmp_path) -> None:
     updated = profiles.update_profile(created.id, last_topic="Algebra")
     assert updated.last_topic == "Algebra"
 
+    enhanced = profiles.update_profile(
+        created.id, skill_profile={"Taluppfattning": 3}
+    )
+    assert enhanced.skill_profile["Taluppfattning"] == 3
+
     fetched = profiles.get_profile(created.id)
     assert fetched is not None
     assert fetched.last_topic == "Algebra"
+    assert fetched.skill_profile["Taluppfattning"] == 3
 
     profiles.delete_profile(created.id)
     assert profiles.list_profiles() == []

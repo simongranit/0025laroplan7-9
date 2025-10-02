@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -83,6 +83,7 @@ def update_profile(
     name: str | None = None,
     last_grade: int | None = None,
     last_topic: str | None = None,
+    skill_profile: Mapping[str, int] | None = None,
 ) -> Profile:
     profiles = load_profiles()
     updated: Profile | None = None
@@ -100,6 +101,10 @@ def update_profile(
             data["last_grade"] = int(last_grade)
         if last_topic is not None:
             data["last_topic"] = last_topic
+        if skill_profile is not None:
+            merged = dict(profile.skill_profile)
+            merged.update(skill_profile)
+            data["skill_profile"] = merged
         data["updated_at"] = datetime.now(UTC)
         updated = Profile.model_validate(data)
         new_profiles.append(updated)

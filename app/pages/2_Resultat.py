@@ -22,6 +22,19 @@ result: DiagnosticResult = st.session_state.result
 active_profile = profiles.get_profile(st.session_state.get("profile_id"))
 if active_profile:
     st.caption(f"Aktiv profil: {active_profile.label}")
+    pending_levels = {
+        topic: level
+        for topic, level in result.skill_profile.items()
+        if active_profile.skill_profile.get(topic) != level
+    }
+    if pending_levels:
+        try:
+            active_profile = profiles.update_profile(
+                active_profile.id,
+                skill_profile=pending_levels,
+            )
+        except ValueError:
+            active_profile = None
 
 st.header("Resultat")
 st.metric("Totalt antal frågor", result.total_questions)
@@ -35,5 +48,11 @@ for topic in result.topics:
     )
 
 if st.button("Beräkna rekommendationer", type="primary"):
-    st.session_state.recommendations = recommend_exercises(result)
+    grade = active_profile.last_grade if active_profile else None
+    skill_profile = active_profile.skill_profile if active_profile else None
+    st.session_state.recommendations = recommend_exercises(
+        result,
+        grade=grade,
+        skill_profile=skill_profile,
+    )
     st.success("Rekommendationer uppdaterade! Gå vidare till sidan '3_Ovningar'.")
