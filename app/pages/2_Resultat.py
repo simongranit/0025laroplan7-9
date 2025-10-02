@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import streamlit as st
+
+ROOT = Path(__file__).resolve().parents[2]
+if (root_str := str(ROOT)) not in sys.path:
+    sys.path.insert(0, root_str)
 
 from services import profiles
 from services.diagnostics import score_submission
