@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from collections.abc import Iterable
 from typing import Any
 
 import httpx
@@ -21,7 +22,7 @@ Förklara steg för steg på svenska (max 120 ord) och uppmuntra eleven.
 _env = Environment(autoescape=False)
 
 
-class DeepSeekProvider(LLMProvider):
+class DeepSeekChatClient:
     def __init__(
         self,
         api_key: str,
@@ -38,26 +39,26 @@ class DeepSeekProvider(LLMProvider):
         self.max_retries = max_retries
         self.retry_backoff = retry_backoff
 
-    async def feedback(self, request: LLMFeedbackRequest) -> str:
-        prompt = _env.from_string(PROMPT_TEMPLATE).render(
-            question=request.question,
-            student_answer=request.student_answer,
-        )
+    async def complete(
+        self,
+        messages: Iterable[dict[str, str]],
+        *,
+        max_tokens: int = 350,
+        temperature: float = 0.7,
+    ) -> str:
         timeout = httpx.Timeout(self.timeout)
+        payload = {
+            "model": "deepseek-chat",
+            "messages": list(messages),
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
         for attempt in range(self.max_retries + 1):
             async with httpx.AsyncClient(timeout=timeout) as client:
                 try:
                     response = await client.post(
                         self.base_url,
-                        json={
-                            "model": "deepseek-chat",
-                            "messages": [
-                                {"role": "system", "content": "Du är en vänlig mattelärare."},
-                                {"role": "user", "content": prompt},
-                            ],
-                            "max_tokens": 350,
-                            "temperature": 0.7,
-                        },
+                        json=payload,
                         headers={"Authorization": f"Bearer {self.api_key}"},
                     )
                     response.raise_for_status()
@@ -79,8 +80,47 @@ class DeepSeekProvider(LLMProvider):
         return str(message)
 
 
+class DeepSeekProvider(LLMProvider):
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str | None = None,
+        timeout: float = 12.0,
+        max_retries: int = 2,
+        retry_backoff: float = 1.5,
+    ) -> None:
+        self.client = DeepSeekChatClient(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=timeout,
+            max_retries=max_retries,
+            retry_backoff=retry_backoff,
+        )
+
+    async def feedback(self, request: LLMFeedbackRequest) -> str:
+        prompt = _env.from_string(PROMPT_TEMPLATE).render(
+            question=request.question,
+            student_answer=request.student_answer,
+        )
+        return await self.client.complete(
+            [
+                {"role": "system", "content": "Du är en vänlig mattelärare."},
+                {"role": "user", "content": prompt},
+            ]
+        )
+
+
 def get_llm_provider() -> LLMProvider:
     api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
     if not api_key:
         return NullLLMProvider()
-    return DeepSeekProvider(api_key)
+    base_url = os.getenv("DEEPSEEK_API_BASE_URL", "").strip() or None
+    return DeepSeekProvider(api_key, base_url=base_url)
+
+
+def get_chat_client() -> DeepSeekChatClient | None:
+    api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+    if not api_key:
+        return None
+    base_url = os.getenv("DEEPSEEK_API_BASE_URL", "").strip() or None
+    return DeepSeekChatClient(api_key, base_url=base_url)

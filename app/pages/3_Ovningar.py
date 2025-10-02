@@ -6,6 +6,7 @@ import streamlit as st
 
 from llm.base import NullLLMProvider
 from llm.deepseek import get_llm_provider
+from services import profiles
 from services.models import LLMFeedbackRequest, Question
 from services.pdf import render_questions_to_pdf
 
@@ -19,6 +20,10 @@ if not recommendations:
 provider = get_llm_provider()
 
 st.header("Rekommenderade övningar")
+active_profile = profiles.get_profile(st.session_state.get("profile_id"))
+if active_profile:
+    st.caption(f"Aktiv profil: {active_profile.label}")
+
 for question in recommendations:
     with st.expander(f"{question.topic}: {question.stem[:60]}..."):
         st.write(question.stem)

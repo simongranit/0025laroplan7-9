@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from services import profiles
 from services.diagnostics import score_submission
 from services.models import DiagnosticResult, DiagnosticSubmission
 from services.recommendations import recommend_exercises
@@ -17,6 +18,10 @@ if st.session_state.result is None:
     st.session_state.result = score_submission(submissions)
 
 result: DiagnosticResult = st.session_state.result
+
+active_profile = profiles.get_profile(st.session_state.get("profile_id"))
+if active_profile:
+    st.caption(f"Aktiv profil: {active_profile.label}")
 
 st.header("Resultat")
 st.metric("Totalt antal frågor", result.total_questions)
