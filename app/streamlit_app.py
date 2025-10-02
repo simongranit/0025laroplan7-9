@@ -3,7 +3,18 @@ from __future__ import annotations
 import streamlit as st
 from dotenv import load_dotenv
 
-from app import _bootstrap  # noqa: F401
+try:
+    from app import _bootstrap  # noqa: F401
+except ModuleNotFoundError:  # pragma: no cover - defensive path for local runs
+    import sys
+    from pathlib import Path
+
+    _ROOT = Path(__file__).resolve().parents[1]
+    _ROOT_STR = str(_ROOT)
+    if _ROOT_STR not in sys.path:
+        sys.path.insert(0, _ROOT_STR)
+
+    from app import _bootstrap  # noqa: F401
 from services import content, diagnostics, profiles
 
 load_dotenv()
