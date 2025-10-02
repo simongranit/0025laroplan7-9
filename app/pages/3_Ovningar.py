@@ -4,6 +4,7 @@ import asyncio
 
 import streamlit as st
 
+from app import _bootstrap  # noqa: F401
 from llm.base import NullLLMProvider
 from llm.deepseek import get_llm_provider
 from services import profiles

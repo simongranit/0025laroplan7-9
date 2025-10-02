@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from app import _bootstrap  # noqa: F401
 from services import profiles
 from services.models import DiagnosticSubmission
 

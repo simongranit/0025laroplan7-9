@@ -3,6 +3,7 @@ from __future__ import annotations
 import streamlit as st
 from dotenv import load_dotenv
 
+from app import _bootstrap  # noqa: F401
 from services import content, diagnostics, profiles
 
 load_dotenv()
