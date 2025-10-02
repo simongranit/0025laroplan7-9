@@ -108,3 +108,16 @@ class LLMFeedbackResponse(BaseModel):
     fallback_used: bool = False
     error_message: str | None = None
     external_url: HttpUrl | None = None
+
+
+class Profile(BaseModel):
+    id: str
+    name: str
+    last_grade: int
+    last_topic: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    @property
+    def label(self) -> str:
+        return f"{self.name} (Åk {self.last_grade})"

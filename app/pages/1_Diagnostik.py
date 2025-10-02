@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from services import profiles
 from services.models import DiagnosticSubmission
 
 st.set_page_config(page_title="Diagnostik", page_icon="📝")
@@ -12,6 +13,10 @@ if "diagnostic_questions" not in st.session_state or not st.session_state.diagno
 
 if "current_index" not in st.session_state:
     st.session_state.current_index = 0
+
+active_profile = profiles.get_profile(st.session_state.get("profile_id"))
+if active_profile:
+    st.caption(f"Aktiv profil: {active_profile.label}")
 
 questions = st.session_state.diagnostic_questions
 index = st.session_state.current_index
