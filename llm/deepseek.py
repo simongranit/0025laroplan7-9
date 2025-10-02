@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from typing import Any
 
@@ -21,38 +22,55 @@ _env = Environment(autoescape=False)
 
 
 class DeepSeekProvider(LLMProvider):
-    def __init__(self, api_key: str, base_url: str | None = None, timeout: float = 8.0) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str | None = None,
+        timeout: float = 12.0,
+        max_retries: int = 2,
+        retry_backoff: float = 1.5,
+    ) -> None:
         if not api_key:
             raise ValueError("DeepSeek API key is required")
         self.api_key = api_key
         self.base_url = base_url or "https://api.deepseek.com/v1/chat/completions"
         self.timeout = timeout
+        self.max_retries = max_retries
+        self.retry_backoff = retry_backoff
 
     async def feedback(self, request: LLMFeedbackRequest) -> str:
         prompt = _env.from_string(PROMPT_TEMPLATE).render(
             question=request.question,
             student_answer=request.student_answer,
         )
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            try:
-                response = await client.post(
-                    self.base_url,
-                    json={
-                        "model": "deepseek-chat",
-                        "messages": [
-                            {"role": "system", "content": "Du är en vänlig mattelärare."},
-                            {"role": "user", "content": prompt},
-                        ],
-                        "max_tokens": 350,
-                        "temperature": 0.7,
-                    },
-                    headers={"Authorization": f"Bearer {self.api_key}"},
-                )
-                response.raise_for_status()
-            except (httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError) as exc:
-                raise RuntimeError("DeepSeek API request failed") from exc
+        timeout = httpx.Timeout(self.timeout)
+        for attempt in range(self.max_retries + 1):
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                try:
+                    response = await client.post(
+                        self.base_url,
+                        json={
+                            "model": "deepseek-chat",
+                            "messages": [
+                                {"role": "system", "content": "Du är en vänlig mattelärare."},
+                                {"role": "user", "content": prompt},
+                            ],
+                            "max_tokens": 350,
+                            "temperature": 0.7,
+                        },
+                        headers={"Authorization": f"Bearer {self.api_key}"},
+                    )
+                    response.raise_for_status()
+                    break
+                except (httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError) as exc:
+                    if attempt >= self.max_retries:
+                        raise RuntimeError("DeepSeek API request failed") from exc
+                    await asyncio.sleep(self.retry_backoff * (attempt + 1))
 
-        data: dict[str, Any] = response.json()
+        try:
+            data: dict[str, Any] = response.json()
+        except ValueError as exc:
+            raise RuntimeError("DeepSeek API response was not valid JSON") from exc
         try:
             choices = data["choices"]
             message = choices[0]["message"]["content"]
