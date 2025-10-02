@@ -55,5 +55,8 @@ exclude = ["arkiv", "matematik", "matte7-9.py"]
 select = ["E", "F", "I", "B", "UP", "N"]
 ignore = ["E501"]
 
+[tool.poetry]
+package-mode = false
+
 [tool.setuptools.packages.find]
 include = ["services", "services.*", "llm", "llm.*"]
