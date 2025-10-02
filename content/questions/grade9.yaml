@@ -1,0 +1,85 @@
+schema_version: "1.0"
+questions:
+  - id: g9_algebra_001
+    grade: 9
+    topic: Algebra
+    difficulty: medium
+    stem: Lös ekvationen 2(x - 3) = 5x + 9.
+    answer: "-5"
+    solution_explainer: "Utveckla vänsterledet till 2x - 6 = 5x + 9 → -15 = 3x → x = -5."
+    tags: [ekvation]
+  - id: g9_funktion_001
+    grade: 9
+    topic: Funktioner
+    difficulty: hard
+    stem: En funktion ges av y = -0,5x + 4. Bestäm x när y = 1.
+    answer: "6"
+    solution_explainer: "1 = -0,5x + 4 → -3 = -0,5x → x = 6."
+    tags: [linjar]
+  - id: g9_geo_001
+    grade: 9
+    topic: Geometri
+    difficulty: hard
+    stem: Ett klot har radien 3 cm. Beräkna volymen (π ≈ 3,14).
+    answer: "113,04"
+    solution_explainer: "Volymen är 4/3 π r³ = 4/3 * 3,14 * 27 ≈ 113,04 cm³."
+    tags: [volym]
+  - id: g9_proc_001
+    grade: 9
+    topic: Procent
+    difficulty: medium
+    stem: Ett kapital ökar 12 % första året och minskar 8 % andra året. Total förändring?
+    answer: "3,04"
+    solution_explainer: "Multiplicera 1,12 · 0,92 = 1,0304 vilket motsvarar +3,04 %."
+    tags: [procent]
+  - id: g9_stat_001
+    grade: 9
+    topic: Statistik
+    difficulty: hard
+    stem: Standardavvikelsen för talen 2, 4, 6, 8 beräknas. Vad blir resultatet (population)?
+    answer: "2,24"
+    solution_explainer: "Medelvärde 5. Varians = ((9 + 1 + 1 + 9)/4) = 5 → √5 ≈ 2,24."
+    tags: [standardavvikelse]
+  - id: g9_brak_001
+    grade: 9
+    topic: Algebra
+    difficulty: medium
+    stem: Lös ekvationen (x + 1)/(x - 2) = 3.
+    answer: "3,5"
+    solution_explainer: "x + 1 = 3x - 6 → 7 = 2x → x = 3,5 (observera x ≠ 2)."
+    tags: [ekvation]
+  - id: g9_tal_001
+    grade: 9
+    topic: Taluppfattning
+    difficulty: hard
+    stem: Beräkna √50 med två decimaler.
+    answer: "7,07"
+    solution_explainer: "√49 = 7 och √50 ≈ 7,07."
+    tags: [rot]
+  - id: g9_sannolikhet_001
+    grade: 9
+    topic: Sannolikhet
+    difficulty: medium
+    stem: Två tärningar kastas. Sannolikheten att summan blir 9?
+    answer: "4/36"
+    solution_explainer: "Kombinationer (3,6), (4,5), (5,4), (6,3) → 4 av 36 = 1/9."
+    tags: [sannolikhet]
+  - id: g9_geo_002
+    grade: 9
+    topic: Geometri
+    difficulty: medium
+    stem: En cylinder har radien 4 cm och höjden 10 cm. Bestäm volymen (π ≈ 3,14).
+    answer: "502,4"
+    solution_explainer: "Volym = πr²h = 3,14 * 16 * 10 ≈ 502,4 cm³."
+    tags: [volym]
+  - id: g9_algebra_002
+    grade: 9
+    topic: Algebra
+    difficulty: hard
+    stem: |
+      Lös ekvationssystemet
+      2x + y = 7
+      x - y = 1
+    answer: "(x, y) = (8/3, 5/3)"
+    solution_explainer: "Lös genom addition: 3x = 8 → x = 8/3, sätt in i x - y = 1 för y = 5/3."
+    tags: [ekvationssystem]
