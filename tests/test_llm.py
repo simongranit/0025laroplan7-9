@@ -1,12 +1,22 @@
 from __future__ import annotations
 
+import importlib
+from contextlib import AbstractContextManager
+from typing import Any, Protocol, cast
+
 import pytest
-import respx
 from httpx import Response
 
 from llm.deepseek import DeepSeekProvider
 from services.content import get_store
 from services.models import LLMFeedbackRequest
+
+
+class _RespxModule(Protocol):
+    def mock(self, *, base_url: str) -> AbstractContextManager[Any]: ...
+
+
+respx = cast(_RespxModule, importlib.import_module("respx"))
 
 
 @pytest.mark.asyncio
