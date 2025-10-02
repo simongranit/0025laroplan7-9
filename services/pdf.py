@@ -7,7 +7,6 @@ from fpdf import FPDF
 
 from .models import Question
 
-
 FONT_FAMILY = "ArialMT"
 FONT_PATH = Path(__file__).resolve().parent.parent / "arkiv" / "02587_ARIALMT.ttf"
 
@@ -47,5 +46,10 @@ def render_questions_to_pdf(questions: Iterable[Question], title: str, include_s
             pdf.set_font(FONT_FAMILY, size=11)
         pdf.ln(4)
 
-    pdf_bytes = pdf.output(dest="S").encode("latin-1")
-    return pdf_bytes
+    pdf_output = pdf.output(dest="S")
+    if isinstance(pdf_output, str):
+        return pdf_output.encode("latin-1")
+    if isinstance(pdf_output, bytes | bytearray):
+        return bytes(pdf_output)
+    msg = f"Unexpected PDF output type: {type(pdf_output)!r}"
+    raise TypeError(msg)
