@@ -103,8 +103,13 @@ with cols[1]:
 if st.button("Starta diagnostik"):
     st.session_state.grade = grade
     st.session_state.topic = topic
+    skill_profile = selected_profile.skill_profile if selected_profile else None
     try:
-        questions = diagnostics.generate_diagnostic(grade, [topic])
+        questions = diagnostics.generate_diagnostic(
+            grade,
+            [topic],
+            skill_profile=skill_profile,
+        )
     except ValueError as exc:
         st.error(str(exc))
     else:

@@ -117,6 +117,7 @@ class Profile(BaseModel):
     last_topic: str | None = None
     created_at: datetime
     updated_at: datetime
+    skill_profile: dict[str, int] = Field(default_factory=dict)
 
     @property
     def label(self) -> str:
