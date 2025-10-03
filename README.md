@@ -67,3 +67,7 @@ Sätt `refresh=True` i `QuestionBankRequest` för att skriva över en befintlig 
 ## Tester
 
 Projektet använder `pytest`. Kör `pytest` eller `make test` för att verifiera funktionalitet.
+
+> 💡 **Felsökning:** Om `pytest` klagar på saknade paket som `pypdf` eller `respx`, saknas
+> sannolikt grundberoendena i din miljö. Kör `pip install -e .[dev]` (eller `make dev`)
+> en gång innan du kör testerna så installeras allt som behövs.
