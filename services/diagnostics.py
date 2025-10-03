@@ -186,7 +186,7 @@ def _maybe_generate_dynamic(
     outline = config.curriculum_hint or _build_curriculum_outline(grade, topics)
     generator = DeepSeekQuestionGenerator(client)
     try:
-        return asyncio.run(
+        questions = asyncio.run(
             generator.generate(
                 grade,
                 topics,
@@ -197,6 +197,13 @@ def _maybe_generate_dynamic(
                 max_tokens=config.max_tokens,
             )
         )
+        if not questions:
+            debug_details = generator.describe_last_attempt()
+            hint = f" Senaste svar: {debug_details}" if debug_details else ""
+            message = "DeepSeek genererade inga frågor. Försök igen senare."
+            logger.warning("%s%s", message, hint)
+            raise DynamicGenerationError(message + hint)
+        return questions
     except RuntimeError as exc:
         message = f"Dynamic diagnostic generation avbruten: {exc}"
         logger.warning(message)
