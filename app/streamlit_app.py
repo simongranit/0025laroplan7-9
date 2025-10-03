@@ -125,10 +125,10 @@ def _run_and_store_diagnostic(
     skill_profile: Mapping[str, int] | None,
     max_tokens: int | None = None,
 ) -> None:
-    config_kwargs: dict[str, object] = {}
     if max_tokens is not None:
-        config_kwargs["max_tokens"] = max_tokens
-    config = diagnostics.DiagnosticConfig(**config_kwargs)
+        config = diagnostics.DiagnosticConfig(max_tokens=max_tokens)
+    else:
+        config = diagnostics.DiagnosticConfig()
     outcome = diagnostics.generate_diagnostic(
         grade,
         [topic],
