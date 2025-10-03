@@ -124,3 +124,13 @@ def test_question_bank_health_check_logs_cause(tmp_path, caplog) -> None:
     assert "DeepSeek-hälsokontrollen misslyckades" in str(exc_info.value)
     assert any("DummyCause" in message for message in caplog.messages)
     assert not builder._health_check_completed
+    with respx.mock(base_url="https://mocked") as router:
+        router.post("/").mock(return_value=Response(500, json={"error": "fail"}))
+        with pytest.raises(RuntimeError) as exc_info:
+            await provider.feedback(
+                LLMFeedbackRequest(question=question, student_answer="11")
+            )
+    message = str(exc_info.value)
+    assert "status code 500" in message
+    assert "fail" in message
+    assert exc_info.value.__cause__ is not None

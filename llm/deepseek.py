@@ -86,6 +86,8 @@ class DeepSeekChatClient:
                             error_text = f"{error_text} (cause: {_describe_exception(cause)})"
                         raise RuntimeError(
                             f"DeepSeek API request failed{details}: {error_text}"
+                        raise RuntimeError(
+                            f"DeepSeek API request failed{details}: {exc}"
                         ) from exc
                     await asyncio.sleep(self.retry_backoff * (attempt + 1))
 
