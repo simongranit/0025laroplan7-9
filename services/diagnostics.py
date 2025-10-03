@@ -6,6 +6,7 @@ import random
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from typing import Literal
 
 from llm.deepseek import get_chat_client
 
@@ -25,6 +26,8 @@ class DiagnosticConfig:
     )
     prefer_dynamic: bool = True
     curriculum_hint: str | None = None
+    temperature: float = 0.6
+    max_tokens: int = 1800
 
     def __post_init__(self) -> None:
         total = sum(self.difficulty_mix.values())
@@ -35,19 +38,40 @@ class DiagnosticConfig:
         }
 
 
+@dataclass(slots=True)
+class DiagnosticGenerationOutcome:
+    questions: list[Question]
+    source: Literal["dynamic", "store"]
+    dynamic_error: str | None = None
+
+
 def generate_diagnostic(
     grade: int,
     topics: Sequence[str],
     config: DiagnosticConfig | None = None,
     skill_profile: Mapping[str, int] | None = None,
-) -> list[Question]:
+) -> DiagnosticGenerationOutcome:
     if config is None:
         config = DiagnosticConfig()
     adjusted_config = _adjust_config_for_skill(config, topics, skill_profile)
-    dynamic_questions = _maybe_generate_dynamic(grade, topics, adjusted_config)
+    dynamic_error: str | None = None
+    dynamic_questions: list[Question] | None = None
+    try:
+        dynamic_questions = _maybe_generate_dynamic(grade, topics, adjusted_config)
+    except DynamicGenerationError as exc:
+        dynamic_error = str(exc)
     if dynamic_questions:
-        return dynamic_questions[: adjusted_config.length]
-    return _generate_from_store(grade, topics, adjusted_config)
+        return DiagnosticGenerationOutcome(
+            dynamic_questions[: adjusted_config.length],
+            source="dynamic",
+            dynamic_error=dynamic_error,
+        )
+    fallback_questions = _generate_from_store(grade, topics, adjusted_config)
+    return DiagnosticGenerationOutcome(
+        fallback_questions,
+        source="store",
+        dynamic_error=dynamic_error,
+    )
 
 
 def _adjust_config_for_skill(
@@ -143,6 +167,10 @@ def _generate_from_store(grade: int, topics: Sequence[str], config: DiagnosticCo
     return selected[: config.length]
 
 
+class DynamicGenerationError(RuntimeError):
+    pass
+
+
 def _maybe_generate_dynamic(
     grade: int,
     topics: Sequence[str],
@@ -152,7 +180,9 @@ def _maybe_generate_dynamic(
         return None
     client = get_chat_client()
     if client is None:
-        return None
+        raise DynamicGenerationError(
+            "DeepSeek är inte konfigurerat. Sätt DEEPSEEK_API_KEY för att skapa nya frågor."
+        )
     outline = config.curriculum_hint or _build_curriculum_outline(grade, topics)
     generator = DeepSeekQuestionGenerator(client)
     try:
@@ -163,14 +193,17 @@ def _maybe_generate_dynamic(
                 config.length,
                 config.difficulty_mix,
                 outline,
+                temperature=config.temperature,
+                max_tokens=config.max_tokens,
             )
         )
     except RuntimeError as exc:
-        logger.warning("Dynamic diagnostic generation avbruten: %s", exc)
-        return None
+        message = f"Dynamic diagnostic generation avbruten: {exc}"
+        logger.warning(message)
+        raise DynamicGenerationError(str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         logger.exception("Dynamic diagnostic generation failed: %s", exc)
-        return None
+        raise DynamicGenerationError("Ett oväntat fel uppstod vid generering.") from exc
 
 
 def _build_curriculum_outline(grade: int, topics: Sequence[str]) -> str:

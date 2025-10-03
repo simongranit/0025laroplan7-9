@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -35,6 +37,10 @@ if "recommendations" not in st.session_state:
     st.session_state.recommendations = []
 if "profile_id" not in st.session_state:
     st.session_state.profile_id = None
+if "last_diagnostic_request" not in st.session_state:
+    st.session_state.last_diagnostic_request = None
+if "dynamic_generation_feedback" not in st.session_state:
+    st.session_state.dynamic_generation_feedback = None
 
 st.title("Matte Diagnostik för årskurs 7–9")
 st.markdown(
@@ -112,33 +118,104 @@ with cols[1]:
             except ValueError:
                 st.session_state.profile_id = None
 
+def _run_and_store_diagnostic(
+    *,
+    grade: int,
+    topic: str,
+    skill_profile: Mapping[str, int] | None,
+    max_tokens: int | None = None,
+) -> None:
+    if max_tokens is not None:
+        config = diagnostics.DiagnosticConfig(max_tokens=max_tokens)
+    else:
+        config = diagnostics.DiagnosticConfig()
+    outcome = diagnostics.generate_diagnostic(
+        grade,
+        [topic],
+        config,
+        skill_profile=skill_profile,
+    )
+    st.session_state.diagnostic_questions = outcome.questions
+    st.session_state.submissions = []
+    st.session_state.result = None
+    st.session_state.recommendations = []
+    st.session_state.dynamic_generation_feedback = None
+    if outcome.source == "store" and outcome.dynamic_error:
+        st.session_state.dynamic_generation_feedback = {
+            "error": outcome.dynamic_error,
+            "grade": grade,
+            "topic": topic,
+        }
+    if st.session_state.profile_id and topic != "Ingen data":
+        try:
+            profiles.update_profile(
+                st.session_state.profile_id,
+                last_grade=grade,
+                last_topic=topic,
+            )
+        except ValueError:
+            st.session_state.profile_id = None
+    success_message = (
+        "Nya frågor skapades med DeepSeek!"
+        if outcome.source == "dynamic"
+        else "Frågor hämtades från lokala biblioteket."
+    )
+    st.success(
+        f"Diagnostik startad! {success_message} Gå till sidan '1_Diagnostik' för att börja."
+    )
+
+
 if st.button("Starta diagnostik"):
     st.session_state.grade = grade
     st.session_state.topic = topic
     skill_profile = selected_profile.skill_profile if selected_profile else None
+    st.session_state.last_diagnostic_request = {
+        "grade": grade,
+        "topic": topic,
+        "skill_profile": skill_profile,
+    }
     try:
-        questions = diagnostics.generate_diagnostic(
-            grade,
-            [topic],
+        _run_and_store_diagnostic(
+            grade=grade,
+            topic=topic,
             skill_profile=skill_profile,
         )
     except ValueError as exc:
         st.error(str(exc))
-    else:
-        st.session_state.diagnostic_questions = questions
-        st.session_state.submissions = []
-        st.session_state.result = None
-        st.session_state.recommendations = []
-        if st.session_state.profile_id and topic != "Ingen data":
-            try:
-                profiles.update_profile(
-                    st.session_state.profile_id,
-                    last_grade=grade,
-                    last_topic=topic,
-                )
-            except ValueError:
-                st.session_state.profile_id = None
-        st.success("Diagnostik startad! Gå till sidan '1_Diagnostik' för att börja.")
+
+feedback = st.session_state.dynamic_generation_feedback
+if feedback:
+    st.warning(
+        "Det gick inte att skapa nya frågor med DeepSeek: "
+        f"{feedback['error']}\n"
+        "Du kan använda frågorna från biblioteket eller försöka igen."
+    )
+    retry_cols = st.columns(2)
+    with retry_cols[0]:
+        if st.button("Försök igen nu", key="retry_dynamic_now"):
+            request = st.session_state.last_diagnostic_request
+            if request:
+                try:
+                    _run_and_store_diagnostic(
+                        grade=request["grade"],
+                        topic=request["topic"],
+                        skill_profile=request["skill_profile"],
+                    )
+                except ValueError as exc:
+                    st.error(str(exc))
+    with retry_cols[1]:
+        if st.button("Försök igen (längre svarstid)", key="retry_dynamic_slow"):
+            request = st.session_state.last_diagnostic_request
+            if request:
+                try:
+                    _run_and_store_diagnostic(
+                        grade=request["grade"],
+                        topic=request["topic"],
+                        skill_profile=request["skill_profile"],
+                        max_tokens=2600,
+                    )
+                except ValueError as exc:
+                    st.error(str(exc))
 
 st.markdown("---")
 st.write("Använd sidomenyn för att navigera mellan diagnos, resultat och övningar.")
