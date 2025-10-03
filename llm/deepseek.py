@@ -63,9 +63,30 @@ class DeepSeekChatClient:
                     )
                     response.raise_for_status()
                     break
-                except (httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError) as exc:
+                except (
+                    httpx.TimeoutException,
+                    httpx.HTTPStatusError,
+                    httpx.RequestError,
+                ) as exc:
                     if attempt >= self.max_retries:
-                        raise RuntimeError("DeepSeek API request failed") from exc
+                        details = ""
+                        if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None:
+                            response_text = exc.response.text
+                            details = (
+                                " (status code "
+                                f"{exc.response.status_code}, response: {response_text})"
+                            )
+                        elif isinstance(exc, httpx.TimeoutException):
+                            details = " (request timed out)"
+                        elif isinstance(exc, httpx.RequestError) and exc.request is not None:
+                            details = f" (request error for {exc.request.url!r})"
+                        error_text = _describe_exception(exc)
+                        cause = exc.__cause__ or exc.__context__
+                        if cause is not None:
+                            error_text = f"{error_text} (cause: {_describe_exception(cause)})"
+                        raise RuntimeError(
+                            f"DeepSeek API request failed{details}: {error_text}"
+                        ) from exc
                     await asyncio.sleep(self.retry_backoff * (attempt + 1))
 
         try:
@@ -78,6 +99,19 @@ class DeepSeekChatClient:
         except (KeyError, IndexError, TypeError) as exc:
             raise RuntimeError("Unexpected DeepSeek response structure") from exc
         return str(message)
+
+    async def health_check(self) -> None:
+        """Perform a lightweight request to ensure the API is reachable."""
+        response = await self.complete(
+            [
+                {"role": "system", "content": "Du är ett diagnostiskt övervakningsverktyg."},
+                {"role": "user", "content": "Svara enbart med OK."},
+            ],
+            max_tokens=8,
+            temperature=0.0,
+        )
+        if not response.strip():
+            raise RuntimeError("DeepSeek API health check returned an empty response.")
 
 
 class DeepSeekProvider(LLMProvider):
@@ -124,3 +158,10 @@ def get_chat_client() -> DeepSeekChatClient | None:
         return None
     base_url = os.getenv("DEEPSEEK_API_BASE_URL", "").strip() or None
     return DeepSeekChatClient(api_key, base_url=base_url)
+
+
+def _describe_exception(exc: BaseException) -> str:
+    message = str(exc).strip()
+    if message:
+        return message
+    return exc.__class__.__name__
