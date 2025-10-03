@@ -213,12 +213,53 @@ class DeepSeekQuestionGenerator:
         return mapping.get(normalized, "medium")
 
     def _extract_json(self, text: str) -> dict[str, Any]:
-        first = text.find("{")
-        last = text.rfind("}")
-        if first == -1 or last == -1 or last <= first:
-            raise ValueError("No JSON object found")
-        fragment = text[first : last + 1]
-        return json.loads(fragment)
+        """Try to recover JSON payloads even when wrapped in Markdown."""
+
+        def _load_candidate(candidate: str) -> dict[str, Any] | None:
+            try:
+                data = json.loads(candidate)
+            except json.JSONDecodeError:
+                return None
+            if isinstance(data, list):
+                return {"questions": data}
+            if isinstance(data, dict):
+                return data
+            return None
+
+        candidates: list[str] = []
+        trimmed = text.strip()
+        if trimmed:
+            candidates.append(trimmed)
+
+        import re
+
+        pattern = re.compile(r"```(?:json)?\s*([\[{].*?[\]}])\s*```", re.DOTALL)
+        for match in pattern.finditer(text):
+            snippet = match.group(1).strip()
+            if snippet:
+                candidates.append(snippet)
+
+        first_brace = text.find("{")
+        last_brace = text.rfind("}")
+        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+            candidates.append(text[first_brace : last_brace + 1])
+
+        first_bracket = text.find("[")
+        last_bracket = text.rfind("]")
+        if first_bracket != -1 and last_bracket != -1 and last_bracket > first_bracket:
+            candidates.append(text[first_bracket : last_bracket + 1])
+
+        seen: set[str] = set()
+        for candidate in candidates:
+            normalized = candidate.strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            loaded = _load_candidate(normalized)
+            if loaded is not None:
+                return loaded
+
+        raise ValueError("No JSON object found in DeepSeek response")
 
 
 def merge_questions(*batches: Iterable[Question]) -> list[Question]:
