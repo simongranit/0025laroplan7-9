@@ -3,7 +3,10 @@ from __future__ import annotations
 import asyncio
 import os
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any
+
+from time import perf_counter
 
 import httpx
 
@@ -17,6 +20,18 @@ Givet svar: {student_answer}
 Korrekt svar: {correct_answer}
 Förklara steg för steg på svenska (max 120 ord) och uppmuntra eleven.
 """
+
+
+@dataclass(slots=True)
+class DeepSeekDiagnosticRun:
+    """Result information from a diagnostic DeepSeek invocation."""
+
+    prompt_repeats: int
+    max_tokens: int
+    duration: float
+    success: bool
+    error: str | None = None
+    response_preview: str | None = None
 
 
 def _render_prompt(request: LLMFeedbackRequest) -> str:
@@ -119,6 +134,61 @@ class DeepSeekChatClient:
         )
         if not response.strip():
             raise RuntimeError("DeepSeek API health check returned an empty response.")
+
+    async def diagnostic_runs(
+        self,
+        prompt_repeats: Iterable[int],
+        *,
+        max_tokens: int = 512,
+        temperature: float = 0.0,
+    ) -> list[DeepSeekDiagnosticRun]:
+        """Run progressively heavier prompts to gauge response characteristics."""
+
+        base_instruction = (
+            "Du är en hjälpsam mattelärare. Förklara resonemangen för varje uppgift nedan.\n\n"
+        )
+        sample_problem = (
+            "Problem: Beräkna 12 * 18 och redovisa alla steg.\n"
+            "Problem: Lös ekvationen 3x + 5 = 23 och motivera lösningen.\n"
+        )
+        results: list[DeepSeekDiagnosticRun] = []
+        for repeats in prompt_repeats:
+            prompt_body = sample_problem * max(repeats, 1)
+            messages = [
+                {"role": "system", "content": "Du är en hjälpsam mattelärare."},
+                {"role": "user", "content": base_instruction + prompt_body},
+            ]
+            start = perf_counter()
+            try:
+                response = await self.complete(
+                    messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+            except Exception as exc:  # noqa: BLE001 - propagate diagnostic info
+                duration = perf_counter() - start
+                results.append(
+                    DeepSeekDiagnosticRun(
+                        prompt_repeats=repeats,
+                        max_tokens=max_tokens,
+                        duration=duration,
+                        success=False,
+                        error=str(exc),
+                    )
+                )
+                break
+            duration = perf_counter() - start
+            preview = response.strip()
+            results.append(
+                DeepSeekDiagnosticRun(
+                    prompt_repeats=repeats,
+                    max_tokens=max_tokens,
+                    duration=duration,
+                    success=True,
+                    response_preview=preview[:200] if preview else None,
+                )
+            )
+        return results
 
 
 class DeepSeekProvider(LLMProvider):
