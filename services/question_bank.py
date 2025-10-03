@@ -134,7 +134,16 @@ class CurriculumQuestionBankBuilder:
                     )
                 )
             except RuntimeError as exc:
-                logger.warning("DeepSeek-förfrågan misslyckades (%s): %s", topic, exc)
+                cause = exc.__cause__ or exc.__context__
+                if cause is not None:
+                    logger.warning(
+                        "DeepSeek-förfrågan misslyckades (%s): %s (orsak: %s)",
+                        topic,
+                        exc,
+                        cause,
+                    )
+                else:
+                    logger.warning("DeepSeek-förfrågan misslyckades (%s): %s", topic, exc)
                 break
             if not batch:
                 logger.info("Inga frågor genererades för %s i försök %s", topic, attempts)

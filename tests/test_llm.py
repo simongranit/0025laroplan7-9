@@ -43,7 +43,11 @@ async def test_deepseek_provider_error() -> None:
     provider = DeepSeekProvider(api_key="test-key", base_url="https://mocked")
     with respx.mock(base_url="https://mocked") as router:
         router.post("/").mock(return_value=Response(500, json={"error": "fail"}))
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RuntimeError) as exc_info:
             await provider.feedback(
                 LLMFeedbackRequest(question=question, student_answer="11")
             )
+    message = str(exc_info.value)
+    assert "status code 500" in message
+    assert "fail" in message
+    assert exc_info.value.__cause__ is not None

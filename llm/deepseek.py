@@ -63,9 +63,26 @@ class DeepSeekChatClient:
                     )
                     response.raise_for_status()
                     break
-                except (httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError) as exc:
+                except (
+                    httpx.TimeoutException,
+                    httpx.HTTPStatusError,
+                    httpx.RequestError,
+                ) as exc:
                     if attempt >= self.max_retries:
-                        raise RuntimeError("DeepSeek API request failed") from exc
+                        details = ""
+                        if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None:
+                            response_text = exc.response.text
+                            details = (
+                                " (status code "
+                                f"{exc.response.status_code}, response: {response_text})"
+                            )
+                        elif isinstance(exc, httpx.TimeoutException):
+                            details = " (request timed out)"
+                        elif isinstance(exc, httpx.RequestError) and exc.request is not None:
+                            details = f" (request error for {exc.request.url!r})"
+                        raise RuntimeError(
+                            f"DeepSeek API request failed{details}: {exc}"
+                        ) from exc
                     await asyncio.sleep(self.retry_backoff * (attempt + 1))
 
         try:
