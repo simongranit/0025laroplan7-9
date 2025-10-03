@@ -85,7 +85,11 @@ class CurriculumQuestionBankBuilder:
                 break
 
         if not collected:
-            raise RuntimeError("DeepSeek genererade inga frågor. Försök igen senare.")
+            debug_details = generator.describe_last_attempt()
+            hint = f" Senaste svar: {debug_details}" if debug_details else ""
+            raise RuntimeError(
+                "DeepSeek genererade inga frågor. Försök igen senare." + hint
+            )
 
         unique_questions = self._ensure_unique_ids(request.grade, slug, collected)
 
@@ -149,6 +153,13 @@ class CurriculumQuestionBankBuilder:
                 break
             if not batch:
                 logger.info("Inga frågor genererades för %s i försök %s", topic, attempts)
+                debug_details = generator.describe_last_attempt()
+                if debug_details:
+                    logger.debug(
+                        "DeepSeek-detaljer för tomt svar (%s): %s",
+                        topic,
+                        debug_details,
+                    )
                 continue
             for question in batch:
                 if question.topic.lower() != topic.lower():
@@ -160,6 +171,13 @@ class CurriculumQuestionBankBuilder:
                 break
         if not questions:
             logger.warning("Hittade inga frågor för %s trots %s försök.", topic, attempts)
+            debug_details = generator.describe_last_attempt()
+            if debug_details:
+                logger.warning(
+                    "Senaste DeepSeek-svar för %s: %s",
+                    topic,
+                    debug_details,
+                )
         return questions[:target]
 
     def _ensure_unique_ids(
