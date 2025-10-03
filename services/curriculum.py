@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import logging
-from functools import lru_cache
+from collections.abc import Sequence
+from functools import cache
 from pathlib import Path
-from typing import Sequence
 
 from pypdf import PdfReader
 
@@ -25,7 +25,7 @@ def available_grades() -> set[int]:
     return set(CURRICULUM_PDFS)
 
 
-@lru_cache(maxsize=None)
+@cache
 def get_curriculum_text(grade: int) -> str:
     """Return the full, flattened curriculum text for the given grade."""
 

@@ -4,15 +4,15 @@ import asyncio
 import json
 import logging
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Sequence
 
 from llm.deepseek import get_chat_client
 
+from .curriculum import CURRICULUM_PDFS, build_curriculum_outline
 from .deepseek_generation import DeepSeekQuestionGenerator
 from .models import Question
-from .curriculum import CURRICULUM_PDFS, build_curriculum_outline
 
 logger = logging.getLogger(__name__)
 
