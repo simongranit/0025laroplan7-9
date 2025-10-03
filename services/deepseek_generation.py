@@ -4,6 +4,7 @@ import json
 import logging
 import random
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
@@ -14,11 +15,35 @@ from .models import Question
 logger = logging.getLogger(__name__)
 
 
+@dataclass(slots=True)
+class GenerationDebugInfo:
+    """Metadata about the most recent DeepSeek generation attempt."""
+
+    prompt: str
+    raw_response: str | None = None
+    parse_error: str | None = None
+    discarded_questions: int = 0
+    returned_questions: int = 0
+
+    def summary(self) -> str:
+        parts: list[str] = []
+        if self.parse_error:
+            parts.append(f"JSON-fel: {self.parse_error}")
+        if self.discarded_questions:
+            parts.append(f"Kasserade frågor: {self.discarded_questions}")
+        parts.append(f"Giltiga frågor: {self.returned_questions}")
+        if self.raw_response:
+            snippet = _truncate_text(self.raw_response, max_length=240)
+            parts.append(f"Svarssnutt: {snippet}")
+        return "; ".join(parts)
+
+
 class DeepSeekQuestionGenerator:
     """Helper that turns DeepSeek chat responses into :class:`Question` objects."""
 
     def __init__(self, client: DeepSeekChatClient) -> None:
         self.client = client
+        self._debug_info: GenerationDebugInfo | None = None
 
     async def generate(
         self,
@@ -32,6 +57,7 @@ class DeepSeekQuestionGenerator:
         max_tokens: int = 1800,
     ) -> list[Question]:
         prompt = self._build_prompt(grade, topics, length, difficulty_mix, curriculum_outline)
+        self._debug_info = GenerationDebugInfo(prompt=prompt)
         response = await self.client.complete(
             [
                 {
@@ -43,7 +69,12 @@ class DeepSeekQuestionGenerator:
             max_tokens=max_tokens,
             temperature=temperature,
         )
-        return self._parse_questions(response, grade, topics, length)
+        if self._debug_info is not None:
+            self._debug_info.raw_response = response
+        questions = self._parse_questions(response, grade, topics, length)
+        if self._debug_info is not None:
+            self._debug_info.returned_questions = len(questions)
+        return questions
 
     def _build_prompt(
         self,
@@ -90,23 +121,35 @@ class DeepSeekQuestionGenerator:
             payload = self._extract_json(response)
         except (ValueError, TypeError) as exc:
             logger.warning("Kunde inte tolka JSON från DeepSeek: %s", exc)
+            if self._debug_info is not None:
+                self._debug_info.parse_error = str(exc)
             return []
         raw_questions = payload.get("questions", []) if isinstance(payload, dict) else []
         questions: list[Question] = []
         for index, item in enumerate(raw_questions):
             normalized = self._normalize_question(item, grade, topics, index)
             if not normalized:
+                if self._debug_info is not None:
+                    self._debug_info.discarded_questions += 1
                 continue
             try:
                 question = Question.model_validate(normalized)
             except Exception as exc:  # noqa: BLE001
                 logger.debug("Ogiltig fråga från DeepSeek hoppar över: %s", exc)
+                if self._debug_info is not None:
+                    self._debug_info.discarded_questions += 1
                 continue
             questions.append(question)
             if len(questions) >= length:
                 break
         random.shuffle(questions)
         return questions
+
+    def describe_last_attempt(self) -> str | None:
+        if self._debug_info is None:
+            return None
+        summary = self._debug_info.summary()
+        return summary or None
 
     def _normalize_question(
         self,
@@ -185,3 +228,10 @@ def merge_questions(*batches: Iterable[Question]) -> list[Question]:
     for batch in batches:
         merged.extend(batch)
     return merged
+
+
+def _truncate_text(value: str, *, max_length: int) -> str:
+    snippet = " ".join(value.strip().split())
+    if len(snippet) <= max_length:
+        return snippet
+    return snippet[: max_length - 1].rstrip() + "…"
