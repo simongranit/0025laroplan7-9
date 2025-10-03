@@ -118,7 +118,7 @@ class CurriculumQuestionBankBuilder:
     ) -> list[Question]:
         questions: list[Question] = []
         attempts = 0
-        seen_stems: set[str] = {question.stem for question in questions}
+        seen_stems: set[str] = set()
         batch_size = max(5, min(15, target))
         self._ensure_health_check(generator)
         while len(questions) < target and attempts < 6:
@@ -143,7 +143,6 @@ class CurriculumQuestionBankBuilder:
                         topic,
                         exc,
                         _describe_exception(cause),
-                        cause,
                     )
                 else:
                     logger.warning("DeepSeek-förfrågan misslyckades (%s): %s", topic, exc)
@@ -198,7 +197,7 @@ class CurriculumQuestionBankBuilder:
 def _describe_exception(exc: BaseException) -> str:
     message = str(exc).strip()
     if message:
-        return message
+        return f"{exc.__class__.__name__}: {message}"
     return exc.__class__.__name__
 
 

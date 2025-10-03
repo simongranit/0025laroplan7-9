@@ -4,24 +4,24 @@ import asyncio
 import sys
 import types
 from contextlib import AbstractContextManager
-import sys
-import types
 from typing import Any, Protocol, cast
 
 import httpx
 import pytest
 from httpx import Request, Response
 
-try:
+# The pdf module is optional in the test environment. Provide a lightweight stub
+# to satisfy the import used by the production code without bringing in heavy
+# dependencies.
+try:  # pragma: no cover - exercised implicitly during import
     import pypdf  # type: ignore  # noqa: F401
-except ModuleNotFoundError:
+except ModuleNotFoundError:  # pragma: no cover - executed in CI without pypdf
     fake_pypdf = types.ModuleType("pypdf")
     fake_pypdf.PdfReader = object  # type: ignore[attr-defined]
     sys.modules.setdefault("pypdf", fake_pypdf)
 
 from llm.deepseek import DeepSeekProvider
 from services.content import get_store
-from services.question_bank import CurriculumQuestionBankBuilder
 from services.models import LLMFeedbackRequest
 from services.question_bank import CurriculumQuestionBankBuilder
 
@@ -30,28 +30,33 @@ class _RespxModule(Protocol):
     def mock(self, *, base_url: str) -> AbstractContextManager[Any]: ...
 
 
-try:
+try:  # pragma: no cover - respx is optional in the runtime environment
     import respx as _respx_mod  # type: ignore
-except ModuleNotFoundError:
+except ModuleNotFoundError:  # pragma: no cover - executed in CI without respx
     _respx_mod = None
 
 respx = cast(_RespxModule | None, _respx_mod)
 
 
+@pytest.mark.skipif(respx is None, reason="respx is required for HTTP mocking")
 def test_deepseek_provider_success() -> None:
-    if respx is None:
-        pytest.skip("respx is required for HTTP mocking")
     store = get_store()
     question = store.questions["g7_aritmetik_001"]
     provider = DeepSeekProvider(api_key="test-key", base_url="https://mocked")
+
     async def _run() -> None:
         assert respx is not None
         with respx.mock(base_url="https://mocked") as router:
-            router.post("/").mock(return_value=Response(200, json={
-                "choices": [
-                    {"message": {"content": "Förklara på svenska"}}
-                ]
-            }))
+            router.post("/").mock(
+                return_value=Response(
+                    200,
+                    json={
+                        "choices": [
+                            {"message": {"content": "Förklara på svenska"}},
+                        ]
+                    },
+                )
+            )
             response = await provider.feedback(
                 LLMFeedbackRequest(question=question, student_answer="11")
             )
@@ -60,12 +65,12 @@ def test_deepseek_provider_success() -> None:
     asyncio.run(_run())
 
 
-def test_deepseek_provider_error() -> None:
-    if respx is None:
-        pytest.skip("respx is required for HTTP mocking")
+@pytest.mark.skipif(respx is None, reason="respx is required for HTTP mocking")
+def test_deepseek_provider_error_includes_status_and_body() -> None:
     store = get_store()
     question = store.questions["g7_aritmetik_001"]
     provider = DeepSeekProvider(api_key="test-key", base_url="https://mocked")
+
     async def _run() -> None:
         assert respx is not None
         with respx.mock(base_url="https://mocked") as router:
@@ -82,15 +87,13 @@ def test_deepseek_provider_error() -> None:
     asyncio.run(_run())
 
 
+@pytest.mark.skipif(respx is None, reason="respx is required for HTTP mocking")
 def test_deepseek_provider_timeout_includes_exception_name() -> None:
-    if respx is None:
-        pytest.skip("respx is required for HTTP mocking")
     store = get_store()
     question = store.questions["g7_aritmetik_001"]
     provider = DeepSeekProvider(api_key="test-key", base_url="https://mocked")
-    timeout_exc = httpx.TimeoutException(
-        "", request=Request("POST", "https://mocked/")
-    )
+    timeout_exc = httpx.TimeoutException("", request=Request("POST", "https://mocked/"))
+
     async def _run() -> None:
         assert respx is not None
         with respx.mock(base_url="https://mocked") as router:
@@ -110,14 +113,12 @@ def test_deepseek_provider_timeout_includes_exception_name() -> None:
 def test_question_bank_health_check_logs_cause(tmp_path, caplog) -> None:
     builder = CurriculumQuestionBankBuilder(output_dir=tmp_path)
 
-    class DummyCause(Exception):
     class DummyCauseError(Exception):
         pass
 
     class DummyClient:
         async def health_check(self) -> None:
-            raise RuntimeError("Yttre fel") from DummyCause()
-            raise RuntimeError("Yttre fel") from DummyCauseError()
+            raise RuntimeError("Yttre fel") from DummyCauseError("Inre fel")
 
     class DummyGenerator:
         def __init__(self) -> None:
@@ -125,17 +126,8 @@ def test_question_bank_health_check_logs_cause(tmp_path, caplog) -> None:
 
     with caplog.at_level("ERROR"):
         with pytest.raises(RuntimeError) as exc_info:
-            builder._ensure_health_check(DummyGenerator())
+            builder._ensure_health_check(cast(Any, DummyGenerator()))
+
     assert "DeepSeek-hälsokontrollen misslyckades" in str(exc_info.value)
-    assert any("DummyCause" in message for message in caplog.messages)
+    assert any("DummyCauseError" in message for message in caplog.messages)
     assert not builder._health_check_completed
-    with respx.mock(base_url="https://mocked") as router:
-        router.post("/").mock(return_value=Response(500, json={"error": "fail"}))
-        with pytest.raises(RuntimeError) as exc_info:
-            await provider.feedback(
-                LLMFeedbackRequest(question=question, student_answer="11")
-            )
-    message = str(exc_info.value)
-    assert "status code 500" in message
-    assert "fail" in message
-    assert exc_info.value.__cause__ is not None

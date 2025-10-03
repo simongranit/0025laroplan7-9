@@ -5,7 +5,10 @@ from collections.abc import Sequence
 from functools import cache
 from pathlib import Path
 
-from pypdf import PdfReader
+try:
+    from pypdf import PdfReader
+except ModuleNotFoundError:  # pragma: no cover - exercised in environments without pypdf
+    PdfReader = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +39,13 @@ def get_curriculum_text(grade: int) -> str:
     if not path.exists():
         logger.warning("Kunde inte hitta läroplansfil för Åk %s (%s)", grade, path)
         return ""
+    if PdfReader is None:
+        logger.warning(
+            "Biblioteket pypdf saknas; återvänder tom läroplanstext för Åk %s.",
+            grade,
+        )
+        return ""
+
     reader = PdfReader(str(path))
     pages: list[str] = []
     for page in reader.pages:
