@@ -38,6 +38,7 @@ class CurriculumQuestionBankBuilder:
     def __init__(self, output_dir: Path | None = None) -> None:
         self.output_dir = output_dir or GENERATED_DIR
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self._health_check_completed = False
 
     def build(self, request: QuestionBankRequest) -> Path:
         if request.grade not in CURRICULUM_PDFS:
@@ -119,6 +120,7 @@ class CurriculumQuestionBankBuilder:
         attempts = 0
         seen_stems: set[str] = {question.stem for question in questions}
         batch_size = max(5, min(15, target))
+        self._ensure_health_check(generator)
         while len(questions) < target and attempts < 6:
             attempts += 1
             try:
@@ -134,7 +136,16 @@ class CurriculumQuestionBankBuilder:
                     )
                 )
             except RuntimeError as exc:
-                logger.warning("DeepSeek-förfrågan misslyckades (%s): %s", topic, exc)
+                cause = exc.__cause__ or exc.__context__
+                if cause is not None:
+                    logger.warning(
+                        "DeepSeek-förfrågan misslyckades (%s): %s (orsak: %s)",
+                        topic,
+                        exc,
+                        _describe_exception(cause),
+                    )
+                else:
+                    logger.warning("DeepSeek-förfrågan misslyckades (%s): %s", topic, exc)
                 break
             if not batch:
                 logger.info("Inga frågor genererades för %s i försök %s", topic, attempts)
@@ -159,6 +170,35 @@ class CurriculumQuestionBankBuilder:
             identifier = f"gen_{grade}_{slug}_{index:03d}"
             updated.append(question.model_copy(update={"id": identifier}))
         return updated
+
+    def _ensure_health_check(self, generator: DeepSeekQuestionGenerator) -> None:
+        if self._health_check_completed:
+            return
+        try:
+            asyncio.run(generator.client.health_check())
+        except Exception as exc:  # noqa: BLE001
+            cause = exc.__cause__ or exc.__context__
+            if cause is not None:
+                logger.error(
+                    "DeepSeek-hälsokontroll misslyckades: %s (orsak: %s)",
+                    exc,
+                    _describe_exception(cause),
+                )
+            else:
+                logger.error("DeepSeek-hälsokontroll misslyckades: %s", exc)
+            raise RuntimeError(
+                "DeepSeek-hälsokontrollen misslyckades. Avbryter generering."
+            ) from exc
+        else:
+            self._health_check_completed = True
+            logger.debug("DeepSeek-hälsokontroll lyckades.")
+
+
+def _describe_exception(exc: BaseException) -> str:
+    message = str(exc).strip()
+    if message:
+        return message
+    return exc.__class__.__name__
 
 
 def _slugify(value: str) -> str:
