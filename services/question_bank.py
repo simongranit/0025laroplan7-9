@@ -143,6 +143,7 @@ class CurriculumQuestionBankBuilder:
                         topic,
                         exc,
                         _describe_exception(cause),
+                        cause,
                     )
                 else:
                     logger.warning("DeepSeek-förfrågan misslyckades (%s): %s", topic, exc)
