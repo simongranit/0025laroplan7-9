@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 import streamlit as st
 
 from app import _bootstrap  # noqa: F401
@@ -10,10 +12,12 @@ from services.recommendations import recommend_exercises
 
 st.set_page_config(page_title="Resultat", page_icon="📊")
 
-submissions: list[DiagnosticSubmission] | None = st.session_state.get("submissions")
-if not submissions:
+raw_submissions = cast(list[DiagnosticSubmission] | None, st.session_state.get("submissions"))
+if raw_submissions is None or not raw_submissions:
     st.warning("Genomför en diagnostik innan du visar resultat.")
     st.stop()
+
+submissions = raw_submissions
 
 if st.session_state.result is None:
     st.session_state.result = score_submission(submissions)

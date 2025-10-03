@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 import sys
 import types
 from contextlib import AbstractContextManager
@@ -14,10 +15,10 @@ from httpx import Request, Response
 # to satisfy the import used by the production code without bringing in heavy
 # dependencies.
 try:  # pragma: no cover - exercised implicitly during import
-    import pypdf  # type: ignore  # noqa: F401
+    import pypdf  # noqa: F401
 except ModuleNotFoundError:  # pragma: no cover - executed in CI without pypdf
     fake_pypdf = types.ModuleType("pypdf")
-    fake_pypdf.PdfReader = object  # type: ignore[attr-defined]
+    setattr(fake_pypdf, "PdfReader", object)
     sys.modules.setdefault("pypdf", fake_pypdf)
 
 from llm.deepseek import DeepSeekProvider
@@ -30,12 +31,13 @@ class _RespxModule(Protocol):
     def mock(self, *, base_url: str) -> AbstractContextManager[Any]: ...
 
 
+respx_module: _RespxModule | None
 try:  # pragma: no cover - respx is optional in the runtime environment
-    import respx as _respx_mod  # type: ignore
+    respx_module = cast(_RespxModule, importlib.import_module("respx"))
 except ModuleNotFoundError:  # pragma: no cover - executed in CI without respx
-    _respx_mod = None
+    respx_module = None
 
-respx = cast(_RespxModule | None, _respx_mod)
+respx = respx_module
 
 
 @pytest.mark.skipif(respx is None, reason="respx is required for HTTP mocking")

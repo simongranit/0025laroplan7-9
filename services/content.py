@@ -5,9 +5,7 @@ import random
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-
-import yaml
-from pydantic import BaseModel, ValidationError
+from typing import Any
 
 from .models import Question, Quiz
 
@@ -18,14 +16,40 @@ QUIZZES_DIR = CONTENT_DIR / "quizzes"
 SCHEMA_VERSION = "1.0"
 
 
-class QuestionSet(BaseModel):
+@dataclass
+class QuestionSet:
     schema_version: str
     questions: list[Question]
 
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "QuestionSet":
+        try:
+            schema_version = str(raw["schema_version"])
+            questions_raw = raw["questions"]
+        except KeyError as exc:
+            raise ValueError("Missing keys in question set") from exc
+        if not isinstance(questions_raw, list):
+            raise ValueError("Questions must be provided as a list")
+        questions = [Question.model_validate(question) for question in questions_raw]
+        return cls(schema_version=schema_version, questions=questions)
 
-class QuizSet(BaseModel):
+
+@dataclass
+class QuizSet:
     schema_version: str
     quizzes: list[Quiz]
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "QuizSet":
+        try:
+            schema_version = str(raw["schema_version"])
+            quizzes_raw = raw["quizzes"]
+        except KeyError as exc:
+            raise ValueError("Missing keys in quiz set") from exc
+        if not isinstance(quizzes_raw, list):
+            raise ValueError("Quizzes must be provided as a list")
+        quizzes = [Quiz.model_validate(quiz) for quiz in quizzes_raw]
+        return cls(schema_version=schema_version, quizzes=quizzes)
 
 
 @dataclass
@@ -53,14 +77,8 @@ class ContentStore:
 
 def _load_question_file(path: Path) -> Iterable[Question]:
     with path.open("r", encoding="utf-8") as handle:
-        if path.suffix in {".yaml", ".yml"}:
-            raw = yaml.safe_load(handle)
-        else:
-            raw = json.load(handle)
-    try:
-        question_set = QuestionSet.model_validate(raw)
-    except ValidationError as exc:
-        raise ValueError(f"Invalid question file {path}: {exc}") from exc
+        raw = json.load(handle)
+    question_set = QuestionSet.from_dict(raw)
     if question_set.schema_version != SCHEMA_VERSION:
         raise ValueError(
             f"Schema version mismatch in {path}: {question_set.schema_version} != {SCHEMA_VERSION}"
@@ -70,14 +88,8 @@ def _load_question_file(path: Path) -> Iterable[Question]:
 
 def _load_quiz_file(path: Path) -> Iterable[Quiz]:
     with path.open("r", encoding="utf-8") as handle:
-        if path.suffix in {".yaml", ".yml"}:
-            raw = yaml.safe_load(handle)
-        else:
-            raw = json.load(handle)
-    try:
-        quiz_set = QuizSet.model_validate(raw)
-    except ValidationError as exc:
-        raise ValueError(f"Invalid quiz file {path}: {exc}") from exc
+        raw = json.load(handle)
+    quiz_set = QuizSet.from_dict(raw)
     if quiz_set.schema_version != SCHEMA_VERSION:
         raise ValueError(
             f"Schema version mismatch in {path}: {quiz_set.schema_version} != {SCHEMA_VERSION}"
@@ -93,14 +105,13 @@ def load_content() -> ContentStore:
     for directory in question_dirs:
         if not directory.exists():
             continue
-        for pattern in ("*.y*ml", "*.json"):
-            for path in directory.glob(pattern):
-                for question in _load_question_file(path):
-                    question_map[question.id] = question
-                    questions_by_grade.setdefault(question.grade, []).append(question)
+        for path in directory.glob("*.json"):
+            for question in _load_question_file(path):
+                question_map[question.id] = question
+                questions_by_grade.setdefault(question.grade, []).append(question)
 
     quizzes: dict[str, Quiz] = {}
-    for path in QUIZZES_DIR.glob("*.y*ml"):
+    for path in QUIZZES_DIR.glob("*.json"):
         for quiz in _load_quiz_file(path):
             quizzes[quiz.id] = quiz
 

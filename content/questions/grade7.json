@@ -1,0 +1,127 @@
+{
+  "schema_version": "1.0",
+  "questions": [
+    {
+      "id": "g7_aritmetik_001",
+      "grade": 7,
+      "topic": "Taluppfattning",
+      "difficulty": "easy",
+      "stem": "Vad är värdet av 3 + 7?",
+      "answer": "10",
+      "solution_explainer": "Addera talen 3 och 7 för att få 10.",
+      "tags": [
+        "addition",
+        "heltal"
+      ]
+    },
+    {
+      "id": "g7_aritmetik_002",
+      "grade": 7,
+      "topic": "Taluppfattning",
+      "difficulty": "easy",
+      "stem": "Vilket tal är störst av 0,4 och 0,09?",
+      "answer": "0,4",
+      "solution_explainer": "0,4 motsvarar fyra tiondelar medan 0,09 är nio hundradelar.",
+      "tags": [
+        "decimal"
+      ]
+    },
+    {
+      "id": "g7_geo_001",
+      "grade": 7,
+      "topic": "Geometri",
+      "difficulty": "medium",
+      "stem": "En triangel har vinklarna 35°, 75° och x°. Vad är x?",
+      "answer": "70",
+      "solution_explainer": "Summan av vinklarna i en triangel är 180°, så 35 + 75 + x = 180 → x = 70.",
+      "tags": [
+        "triangel",
+        "vinklar"
+      ]
+    },
+    {
+      "id": "g7_bråk_001",
+      "grade": 7,
+      "topic": "Taluppfattning",
+      "difficulty": "medium",
+      "stem": "Förenkla bråket 12/18.",
+      "answer": "2/3",
+      "solution_explainer": "Dela både täljare och nämnare med 6 för att få 2/3.",
+      "tags": [
+        "bråk"
+      ]
+    },
+    {
+      "id": "g7_proc_001",
+      "grade": 7,
+      "topic": "Procent",
+      "difficulty": "easy",
+      "stem": "Vad är 25 % av 80?",
+      "answer": "20",
+      "solution_explainer": "25 % är en fjärdedel av 80 vilket är 20.",
+      "tags": [
+        "procent"
+      ]
+    },
+    {
+      "id": "g7_algebra_001",
+      "grade": 7,
+      "topic": "Algebra",
+      "difficulty": "medium",
+      "stem": "Lös ekvationen x + 5 = 12.",
+      "answer": "7",
+      "solution_explainer": "Subtrahera 5 från båda sidor för att få x = 7.",
+      "tags": [
+        "ekvation"
+      ]
+    },
+    {
+      "id": "g7_stat_001",
+      "grade": 7,
+      "topic": "Statistik",
+      "difficulty": "easy",
+      "stem": "Medelvärdet av talen 4, 6 och 10 är?",
+      "answer": "6,67",
+      "solution_explainer": "Summan 20 delat på 3 är ungefär 6,67.",
+      "tags": [
+        "medelvärde"
+      ]
+    },
+    {
+      "id": "g7_geo_002",
+      "grade": 7,
+      "topic": "Geometri",
+      "difficulty": "hard",
+      "stem": "Omkretsen av en rektangel är 48 cm och längden är 14 cm. Vad är bredden?",
+      "answer": "10",
+      "solution_explainer": "2(l + b) = 48 → l + b = 24 → 14 + b = 24 → b = 10.",
+      "tags": [
+        "rektangel"
+      ]
+    },
+    {
+      "id": "g7_bråk_002",
+      "grade": 7,
+      "topic": "Taluppfattning",
+      "difficulty": "hard",
+      "stem": "3/5 av ett tal är 27. Vilket är talet?",
+      "answer": "45",
+      "solution_explainer": "Dividera 27 med 3 och multiplicera med 5: 27/3 = 9, 9·5 = 45.",
+      "tags": [
+        "bråk"
+      ]
+    },
+    {
+      "id": "g7_proc_002",
+      "grade": 7,
+      "topic": "Procent",
+      "difficulty": "medium",
+      "stem": "En tröja kostar 400 kr. Priset sänks med 15 %. Vad blir det nya priset?",
+      "answer": "340",
+      "solution_explainer": "15 % av 400 är 60, 400 − 60 = 340 kr.",
+      "tags": [
+        "procent"
+      ]
+    }
+  ]
+}
