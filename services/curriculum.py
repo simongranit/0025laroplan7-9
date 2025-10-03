@@ -4,11 +4,12 @@ import logging
 from collections.abc import Sequence
 from functools import cache
 from pathlib import Path
+from typing import Any, cast
 
 try:
-    from pypdf import PdfReader
+    import pypdf
 except ModuleNotFoundError:  # pragma: no cover - exercised in environments without pypdf
-    PdfReader = None  # type: ignore[assignment]
+    pypdf = cast(Any, None)
 
 logger = logging.getLogger(__name__)
 
@@ -39,14 +40,14 @@ def get_curriculum_text(grade: int) -> str:
     if not path.exists():
         logger.warning("Kunde inte hitta läroplansfil för Åk %s (%s)", grade, path)
         return ""
-    if PdfReader is None:
+    if pypdf is None:
         logger.warning(
             "Biblioteket pypdf saknas; återvänder tom läroplanstext för Åk %s.",
             grade,
         )
         return ""
 
-    reader = PdfReader(str(path))
+    reader = pypdf.PdfReader(str(path))
     pages: list[str] = []
     for page in reader.pages:
         text = page.extract_text() or ""

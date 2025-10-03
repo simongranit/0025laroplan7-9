@@ -6,20 +6,25 @@ from collections.abc import Iterable
 from typing import Any
 
 import httpx
-from jinja2 import Environment
 
 from services.models import LLMFeedbackRequest
 
 from .base import LLMProvider, NullLLMProvider
 
 PROMPT_TEMPLATE = """Du är en hjälpsam mattelärare. Eleven har svarat på en fråga.
-Fråga: {{ question.stem }}
-Givet svar: {{ student_answer }}
-Korrekt svar: {{ question.answer }}
+Fråga: {question_stem}
+Givet svar: {student_answer}
+Korrekt svar: {correct_answer}
 Förklara steg för steg på svenska (max 120 ord) och uppmuntra eleven.
 """
 
-_env = Environment(autoescape=False)
+
+def _render_prompt(request: LLMFeedbackRequest) -> str:
+    return PROMPT_TEMPLATE.format(
+        question_stem=request.question.stem,
+        student_answer=request.student_answer,
+        correct_answer=request.question.answer,
+    )
 
 
 class DeepSeekChatClient:
@@ -134,10 +139,7 @@ class DeepSeekProvider(LLMProvider):
         )
 
     async def feedback(self, request: LLMFeedbackRequest) -> str:
-        prompt = _env.from_string(PROMPT_TEMPLATE).render(
-            question=request.question,
-            student_answer=request.student_answer,
-        )
+        prompt = _render_prompt(request)
         return await self.client.complete(
             [
                 {"role": "system", "content": "Du är en vänlig mattelärare."},

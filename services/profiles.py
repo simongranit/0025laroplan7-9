@@ -7,8 +7,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from pydantic import ValidationError
-
 from services.models import Profile
 
 DEFAULT_STORAGE_DIR = Path.home() / ".matte_diagnostics"
@@ -33,7 +31,7 @@ def load_profiles() -> list[Profile]:
     for entry in raw:
         try:
             profile = Profile.model_validate(entry)
-        except ValidationError:
+        except (TypeError, ValueError):
             continue
         profiles.append(profile)
     profiles.sort(key=lambda profile: profile.created_at)

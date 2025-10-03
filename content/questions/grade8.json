@@ -1,0 +1,125 @@
+{
+  "schema_version": "1.0",
+  "questions": [
+    {
+      "id": "g8_algebra_001",
+      "grade": 8,
+      "topic": "Algebra",
+      "difficulty": "easy",
+      "stem": "Förenkla uttrycket 3x + 5x.",
+      "answer": "8x",
+      "solution_explainer": "Addera koefficienterna 3 och 5 för att få 8x.",
+      "tags": [
+        "algebra"
+      ]
+    },
+    {
+      "id": "g8_algebra_002",
+      "grade": 8,
+      "topic": "Algebra",
+      "difficulty": "medium",
+      "stem": "Lös ekvationen 4x - 3 = 21.",
+      "answer": "6",
+      "solution_explainer": "Addera 3 till båda sidor och dela sedan med 4 för att få x = 6.",
+      "tags": [
+        "ekvation"
+      ]
+    },
+    {
+      "id": "g8_funktion_001",
+      "grade": 8,
+      "topic": "Funktioner",
+      "difficulty": "medium",
+      "stem": "En linje har ekvationen y = 2x + 1. Vad är y när x = -2?",
+      "answer": "-3",
+      "solution_explainer": "Sätt in -2 i ekvationen: y = 2(-2) + 1 = -4 + 1 = -3.",
+      "tags": [
+        "linjar"
+      ]
+    },
+    {
+      "id": "g8_geo_001",
+      "grade": 8,
+      "topic": "Geometri",
+      "difficulty": "hard",
+      "stem": "Basen i en triangel är 12 cm och höjden är 9 cm. Beräkna arean.",
+      "answer": "54",
+      "solution_explainer": "Arean är bas * höjd / 2 = 12 * 9 / 2 = 54 cm².",
+      "tags": [
+        "area"
+      ]
+    },
+    {
+      "id": "g8_proc_001",
+      "grade": 8,
+      "topic": "Procent",
+      "difficulty": "medium",
+      "stem": "Ett pris ökar från 200 kr till 250 kr. Hur många procent ökning är det?",
+      "answer": "25",
+      "solution_explainer": "Ökningen är 50 kr. 50/200 = 0,25 vilket motsvarar 25 %.",
+      "tags": [
+        "procent"
+      ]
+    },
+    {
+      "id": "g8_stat_001",
+      "grade": 8,
+      "topic": "Statistik",
+      "difficulty": "easy",
+      "stem": "Medianen av talen 8, 3, 5, 9, 11 är?",
+      "answer": "8",
+      "solution_explainer": "Sortera talen 3,5,8,9,11. Medianen är det mittersta talet, 8.",
+      "tags": [
+        "median"
+      ]
+    },
+    {
+      "id": "g8_tal_001",
+      "grade": 8,
+      "topic": "Taluppfattning",
+      "difficulty": "hard",
+      "stem": "Beräkna 2,4 · 0,35.",
+      "answer": "0,84",
+      "solution_explainer": "Multiplicera 24 · 35 = 840 och flytta decimalerna tre steg → 0,84.",
+      "tags": [
+        "decimal"
+      ]
+    },
+    {
+      "id": "g8_brak_001",
+      "grade": 8,
+      "topic": "Taluppfattning",
+      "difficulty": "medium",
+      "stem": "Addera 5/6 och 1/4.",
+      "answer": "13/12",
+      "solution_explainer": "Minsta gemensamma nämnare är 12. 5/6 = 10/12 och 1/4 = 3/12. Summan är 13/12.",
+      "tags": [
+        "bråk"
+      ]
+    },
+    {
+      "id": "g8_sannolikhet_001",
+      "grade": 8,
+      "topic": "Sannolikhet",
+      "difficulty": "medium",
+      "stem": "En påse innehåller 4 röda, 3 blå och 5 gröna kulor. Sannolikheten att dra en blå kula?",
+      "answer": "1/4",
+      "solution_explainer": "Totalt 12 kulor. 3 av 12 är blå → 3/12 = 1/4.",
+      "tags": [
+        "sannolikhet"
+      ]
+    },
+    {
+      "id": "g8_geo_002",
+      "grade": 8,
+      "topic": "Geometri",
+      "difficulty": "medium",
+      "stem": "Omkretsen av en cirkel är 31,4 cm. Vilken är radien? (π ≈ 3,14)",
+      "answer": "5",
+      "solution_explainer": "Omkrets = 2πr → r = 31,4 / (2 * 3,14) ≈ 5 cm.",
+      "tags": [
+        "cirkel"
+      ]
+    }
+  ]
+}
