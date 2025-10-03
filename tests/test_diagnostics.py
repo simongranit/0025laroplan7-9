@@ -6,8 +6,11 @@ from services.models import DiagnosticSubmission, Question
 
 
 def test_generate_diagnostic_returns_requested_length() -> None:
-    questions = diagnostics.generate_diagnostic(7, ["Taluppfattning"], diagnostics.DiagnosticConfig(length=5))
-    assert len(questions) == 5
+    outcome = diagnostics.generate_diagnostic(
+        7, ["Taluppfattning"], diagnostics.DiagnosticConfig(length=5)
+    )
+    assert len(outcome.questions) == 5
+    assert outcome.source == "store"
 
 
 def test_score_submission_creates_topic_scores() -> None:
@@ -40,10 +43,11 @@ def test_generate_diagnostic_uses_dynamic(monkeypatch) -> None:
         lambda grade, topics, config: [dynamic_question],
     )
 
-    questions = diagnostics.generate_diagnostic(
+    outcome = diagnostics.generate_diagnostic(
         7, ["Taluppfattning"], diagnostics.DiagnosticConfig(length=3)
     )
-    assert questions == [dynamic_question]
+    assert outcome.source == "dynamic"
+    assert outcome.questions == [dynamic_question]
 
 
 def test_generate_diagnostic_fallback_when_dynamic_empty(monkeypatch) -> None:
@@ -51,8 +55,9 @@ def test_generate_diagnostic_fallback_when_dynamic_empty(monkeypatch) -> None:
         diagnostics, "_maybe_generate_dynamic", lambda grade, topics, config: []
     )
     config = diagnostics.DiagnosticConfig(length=4)
-    questions = diagnostics.generate_diagnostic(7, ["Taluppfattning"], config)
-    assert len(questions) == 4
+    outcome = diagnostics.generate_diagnostic(7, ["Taluppfattning"], config)
+    assert outcome.source == "store"
+    assert len(outcome.questions) == 4
 
 
 def test_generate_diagnostic_uses_skill_profile(monkeypatch) -> None:
@@ -61,10 +66,10 @@ def test_generate_diagnostic_uses_skill_profile(monkeypatch) -> None:
     )
     monkeypatch.setattr(diagnostics.random, "sample", lambda seq, k: list(seq)[:k])
     config = diagnostics.DiagnosticConfig(length=3, prefer_dynamic=False)
-    questions = diagnostics.generate_diagnostic(
+    outcome = diagnostics.generate_diagnostic(
         7,
         ["Taluppfattning"],
         config,
         skill_profile={"Taluppfattning": 5},
     )
-    assert any(question.difficulty == "hard" for question in questions)
+    assert any(question.difficulty == "hard" for question in outcome.questions)
