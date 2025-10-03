@@ -83,11 +83,11 @@ class DeepSeekChatClient:
                         error_text = _describe_exception(exc)
                         cause = exc.__cause__ or exc.__context__
                         if cause is not None:
-                            error_text = f"{error_text} (cause: {_describe_exception(cause)})"
+                            error_text = (
+                                f"{error_text} (cause: {_describe_exception(cause)})"
+                            )
                         raise RuntimeError(
                             f"DeepSeek API request failed{details}: {error_text}"
-                        raise RuntimeError(
-                            f"DeepSeek API request failed{details}: {exc}"
                         ) from exc
                     await asyncio.sleep(self.retry_backoff * (attempt + 1))
 
@@ -165,5 +165,5 @@ def get_chat_client() -> DeepSeekChatClient | None:
 def _describe_exception(exc: BaseException) -> str:
     message = str(exc).strip()
     if message:
-        return message
+        return f"{exc.__class__.__name__}: {message}"
     return exc.__class__.__name__
