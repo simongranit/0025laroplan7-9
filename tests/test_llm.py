@@ -4,6 +4,8 @@ import asyncio
 import sys
 import types
 from contextlib import AbstractContextManager
+import sys
+import types
 from typing import Any, Protocol, cast
 
 import httpx
@@ -19,6 +21,7 @@ except ModuleNotFoundError:
 
 from llm.deepseek import DeepSeekProvider
 from services.content import get_store
+from services.question_bank import CurriculumQuestionBankBuilder
 from services.models import LLMFeedbackRequest
 from services.question_bank import CurriculumQuestionBankBuilder
 
@@ -107,11 +110,13 @@ def test_deepseek_provider_timeout_includes_exception_name() -> None:
 def test_question_bank_health_check_logs_cause(tmp_path, caplog) -> None:
     builder = CurriculumQuestionBankBuilder(output_dir=tmp_path)
 
+    class DummyCause(Exception):
     class DummyCauseError(Exception):
         pass
 
     class DummyClient:
         async def health_check(self) -> None:
+            raise RuntimeError("Yttre fel") from DummyCause()
             raise RuntimeError("Yttre fel") from DummyCauseError()
 
     class DummyGenerator:
