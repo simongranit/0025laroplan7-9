@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import random
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from typing import Any
-from uuid import uuid4
 
-from llm.deepseek import DeepSeekChatClient, get_chat_client
+from llm.deepseek import get_chat_client
 
 from . import content
+from .curriculum import build_curriculum_outline as curriculum_outline_from_pdf
+from .deepseek_generation import DeepSeekQuestionGenerator
 from .models import DiagnosticResult, DiagnosticSubmission, Question, TopicScore
 
 logger = logging.getLogger(__name__)
@@ -111,8 +110,6 @@ def _generate_from_store(grade: int, topics: Sequence[str], config: DiagnosticCo
             for q in store.questions_by_grade.get(grade, [])
             if q.topic == topic
         )
-    if len(candidates) < config.length:
-        candidates = store.questions_by_grade.get(grade, [])
     if not candidates:
         raise ValueError(f"No questions found for grade {grade} and topics {topics}.")
 
@@ -131,9 +128,16 @@ def _generate_from_store(grade: int, topics: Sequence[str], config: DiagnosticCo
             remaining -= k
 
     if remaining > 0:
-        leftovers = [q for q in candidates if q not in selected]
-        if leftovers:
-            selected.extend(random.sample(leftovers, k=min(len(leftovers), remaining)))
+        logger.warning(
+            "Not enough unika frågor för %s (Åk %s). Försöker fylla på med slumpmässiga val.",
+            ", ".join(topics),
+            grade,
+        )
+        extras = [q for q in candidates if q not in selected]
+        if not extras:
+            extras = candidates
+        if extras:
+            selected.extend(random.choices(extras, k=remaining))
 
     random.shuffle(selected)
     return selected[: config.length]
@@ -150,10 +154,16 @@ def _maybe_generate_dynamic(
     if client is None:
         return None
     outline = config.curriculum_hint or _build_curriculum_outline(grade, topics)
-    generator = _DeepSeekDiagnosticGenerator(client)
+    generator = DeepSeekQuestionGenerator(client)
     try:
         return asyncio.run(
-            generator.generate(grade, topics, config.length, config.difficulty_mix, outline)
+            generator.generate(
+                grade,
+                topics,
+                config.length,
+                config.difficulty_mix,
+                outline,
+            )
         )
     except RuntimeError as exc:
         logger.warning("Dynamic diagnostic generation avbruten: %s", exc)
@@ -164,6 +174,10 @@ def _maybe_generate_dynamic(
 
 
 def _build_curriculum_outline(grade: int, topics: Sequence[str]) -> str:
+    outline = curriculum_outline_from_pdf(grade, topics)
+    if outline:
+        return outline
+
     store = content.get_store()
     sections: list[str] = []
     for topic in topics:
@@ -182,160 +196,3 @@ def _build_curriculum_outline(grade: int, topics: Sequence[str]) -> str:
     return "\n".join(sections)
 
 
-class _DeepSeekDiagnosticGenerator:
-    def __init__(self, client: DeepSeekChatClient) -> None:
-        self.client = client
-
-    async def generate(
-        self,
-        grade: int,
-        topics: Sequence[str],
-        length: int,
-        difficulty_mix: dict[str, float],
-        curriculum_outline: str | None,
-    ) -> list[Question]:
-        prompt = self._build_prompt(grade, topics, length, difficulty_mix, curriculum_outline)
-        response = await self.client.complete(
-            [
-                {
-                    "role": "system",
-                    "content": "Du är en erfaren matematiklärare som skriver diagnostiska prov för svenska läroplanen.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=1800,
-            temperature=0.6,
-        )
-        return self._parse_questions(response, grade, topics, length)
-
-    def _build_prompt(
-        self,
-        grade: int,
-        topics: Sequence[str],
-        length: int,
-        difficulty_mix: dict[str, float],
-        curriculum_outline: str | None,
-    ) -> str:
-        distribution = ", ".join(
-            f"{int(weight * 100)}% {level}" for level, weight in difficulty_mix.items()
-        )
-        outline_section = (
-            f"\nFölj dessa exempel från undervisningen:\n{curriculum_outline}"
-            if curriculum_outline
-            else ""
-        )
-        topics_text = ", ".join(topics)
-        return (
-            "Skapa ett diagnostiskt prov för matematik enligt den svenska läroplanen.\n"
-            f"Årskurs: {grade}.\n"
-            f"Områden: {topics_text}.\n"
-            f"Provets längd: {length} frågor.\n"
-            f"Svårighetsfördelning: {distribution}.\n"
-            "Varje fråga ska vara tydlig och skriven på svenska."
-            " Använd rätt matematiskt språk och inkludera vardagsnära sammanhang när det passar."
-            f"{outline_section}\n"
-            "Returnera ENBART JSON med nyckeln \"questions\". Varje fråga ska vara ett objekt"
-            " med fälten id, grade, topic, difficulty (easy|medium|hard), stem, answer,"
-            " solution_explainer och choices (lista med svarsalternativ eller tom lista)."
-            " Lösningsförklaringen ska vara kort och vägledande."
-            " Om frågan är öppen ska choices vara en tom lista."
-            " Id ska vara unikt och kan börja med 'dyn'."
-        )
-
-    def _parse_questions(
-        self,
-        response: str,
-        grade: int,
-        topics: Sequence[str],
-        length: int,
-    ) -> list[Question]:
-        try:
-            payload = self._extract_json(response)
-        except (ValueError, TypeError) as exc:
-            logger.warning("Kunde inte tolka JSON från DeepSeek: %s", exc)
-            return []
-        raw_questions = payload.get("questions", []) if isinstance(payload, dict) else []
-        questions: list[Question] = []
-        for index, item in enumerate(raw_questions):
-            normalized = self._normalize_question(item, grade, topics, index)
-            if not normalized:
-                continue
-            try:
-                question = Question.model_validate(normalized)
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("Ogiltig fråga från DeepSeek hoppar över: %s", exc)
-                continue
-            questions.append(question)
-            if len(questions) >= length:
-                break
-        random.shuffle(questions)
-        return questions
-
-    def _normalize_question(
-        self,
-        item: Any,
-        grade: int,
-        topics: Sequence[str],
-        index: int,
-    ) -> dict[str, Any] | None:
-        if not isinstance(item, dict):
-            return None
-        topic = item.get("topic") or (topics[0] if topics else "Allmänt")
-        difficulty = self._normalize_difficulty(item.get("difficulty"))
-        stem = str(item.get("stem", "")).strip()
-        answer = str(item.get("answer", "")).strip()
-        solution = str(
-            item.get("solution_explainer")
-            or item.get("solution")
-            or item.get("explanation", "")
-        ).strip()
-        if not stem or not answer:
-            return None
-        choices_raw = item.get("choices")
-        if isinstance(choices_raw, list):
-            choices = [str(choice).strip() for choice in choices_raw if str(choice).strip()]
-        else:
-            choices = []
-        tags_raw = item.get("tags")
-        if isinstance(tags_raw, list):
-            tags = [str(tag).strip() for tag in tags_raw if str(tag).strip()]
-        else:
-            tags = []
-        if not solution:
-            solution = f"Rätt svar är {answer}."
-        normalized: dict[str, Any] = {
-            "id": item.get("id") or f"dyn_{grade}_{index}_{uuid4().hex[:6]}",
-            "grade": grade,
-            "topic": topic,
-            "difficulty": difficulty,
-            "stem": stem,
-            "answer": answer,
-            "solution_explainer": solution,
-            "choices": choices or None,
-            "tags": sorted({*tags, "dynamic"}),
-        }
-        return normalized
-
-    def _normalize_difficulty(self, value: Any) -> str:
-        if not value:
-            return "medium"
-        normalized = str(value).strip().lower()
-        mapping = {
-            "lätt": "easy",
-            "enkel": "easy",
-            "easy": "easy",
-            "medel": "medium",
-            "mellan": "medium",
-            "medium": "medium",
-            "svår": "hard",
-            "hard": "hard",
-        }
-        return mapping.get(normalized, "medium")
-
-    def _extract_json(self, text: str) -> dict[str, Any]:
-        first = text.find("{")
-        last = text.rfind("}")
-        if first == -1 or last == -1 or last <= first:
-            raise ValueError("No JSON object found")
-        fragment = text[first : last + 1]
-        return json.loads(fragment)

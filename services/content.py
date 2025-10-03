@@ -13,6 +13,7 @@ from .models import Question, Quiz
 
 CONTENT_DIR = Path(__file__).resolve().parent.parent / "content"
 QUESTIONS_DIR = CONTENT_DIR / "questions"
+GENERATED_QUESTIONS_DIR = CONTENT_DIR / "generated"
 QUIZZES_DIR = CONTENT_DIR / "quizzes"
 SCHEMA_VERSION = "1.0"
 
@@ -88,10 +89,15 @@ def load_content() -> ContentStore:
     question_map: dict[str, Question] = {}
     questions_by_grade: dict[int, list[Question]] = {}
 
-    for path in QUESTIONS_DIR.glob("*.y*ml"):
-        for question in _load_question_file(path):
-            question_map[question.id] = question
-            questions_by_grade.setdefault(question.grade, []).append(question)
+    question_dirs = [QUESTIONS_DIR, GENERATED_QUESTIONS_DIR]
+    for directory in question_dirs:
+        if not directory.exists():
+            continue
+        for pattern in ("*.y*ml", "*.json"):
+            for path in directory.glob(pattern):
+                for question in _load_question_file(path):
+                    question_map[question.id] = question
+                    questions_by_grade.setdefault(question.grade, []).append(question)
 
     quizzes: dict[str, Quiz] = {}
     for path in QUIZZES_DIR.glob("*.y*ml"):
