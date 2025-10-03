@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import streamlit as st
@@ -24,6 +25,19 @@ if not client_available:
         "DeepSeek är inte konfigurerat ännu. Sätt `DEEPSEEK_API_KEY` för att kunna "
         "generera nya frågor."
     )
+
+if st.button("Testa DeepSeek-anslutning", disabled=not client_available):
+    client = get_chat_client()
+    if client is None:
+        st.error("DeepSeek-klienten kunde inte initieras.")
+    else:
+        with st.spinner("Kontrollerar anslutningen..."):
+            try:
+                asyncio.run(client.health_check())
+            except Exception as exc:  # noqa: BLE001
+                st.error(f"Anslutningstestet misslyckades: {exc}")
+            else:
+                st.success("Anslutningen fungerar!")
 
 grade = st.selectbox("Årskurs", [7, 8, 9], index=[7, 8, 9].index(st.session_state.get("grade", 7)))
 all_topics = content.list_topics(grade)
