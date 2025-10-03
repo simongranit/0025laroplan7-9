@@ -5,7 +5,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from llm.deepseek import get_chat_client
+from llm.deepseek import get_chat_client, run_diagnostic_load_test
 from services import content
 from services.question_bank import (
     GENERATED_DIR,
@@ -38,6 +38,87 @@ if st.button("Testa DeepSeek-anslutning", disabled=not client_available):
                 st.error(f"Anslutningstestet misslyckades: {exc}")
             else:
                 st.success("Anslutningen fungerar!")
+
+with st.expander("Utökad anslutningsdiagnos", expanded=False):
+    st.write(
+        "Kör ett mer krävande test för att se hur DeepSeek svarar på större prompts "
+        "och längre svar."
+    )
+    diag_cols = st.columns(3)
+    with diag_cols[0]:
+        diag_steps = st.slider("Antal steg", min_value=1, max_value=5, value=3, key="diag_steps")
+        diag_initial = st.slider(
+            "Uppgifter i första steget",
+            min_value=1,
+            max_value=8,
+            value=2,
+            key="diag_initial",
+        )
+    with diag_cols[1]:
+        diag_increment = st.slider(
+            "Ökning av uppgifter per steg",
+            min_value=0,
+            max_value=5,
+            value=1,
+            key="diag_increment",
+        )
+        diag_max_tokens = st.slider(
+            "Max tokens i svaret",
+            min_value=128,
+            max_value=3200,
+            value=600,
+            step=64,
+            key="diag_max_tokens",
+        )
+    with diag_cols[2]:
+        diag_temperature = st.slider(
+            "Temperature för testet",
+            min_value=0.0,
+            max_value=1.2,
+            value=0.2,
+            step=0.1,
+            key="diag_temperature",
+        )
+    prompt_repeats = [diag_initial + i * diag_increment for i in range(diag_steps)]
+    st.caption(
+        "Stegvisa upprepningar i testet: "
+        + ", ".join(str(value) for value in prompt_repeats)
+    )
+    if st.button("Kör utökad anslutningsdiagnos", disabled=not client_available, key="run_diag"):
+        client = get_chat_client()
+        if client is None:
+            st.error("DeepSeek-klienten kunde inte initieras.")
+        else:
+            with st.spinner("Kör diagnostik..."):
+                try:
+                    results = asyncio.run(
+                        run_diagnostic_load_test(
+                            client,
+                            prompt_repeats,
+                            max_tokens=diag_max_tokens,
+                            temperature=diag_temperature,
+                        )
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    st.error(f"Diagnostiken misslyckades: {exc}")
+                else:
+                    if not results:
+                        st.warning("Inga diagnostiksteg kördes.")
+                    for index, result in enumerate(results, start=1):
+                        label = (
+                            f"Steg {index}: {result.prompt_repeats} uppgifter, "
+                            f"max_tokens={result.max_tokens}"
+                        )
+                        if result.success:
+                            st.success(f"{label} – {result.duration:.2f} s")
+                            if result.response_preview:
+                                st.caption("Förhandsvisning av modellens svar")
+                                st.code(result.response_preview, language="markdown")
+                        else:
+                            st.error(
+                                f"{label} misslyckades efter {result.duration:.2f} s: {result.error}"
+                            )
+                            break
 
 grade = st.selectbox("Årskurs", [7, 8, 9], index=[7, 8, 9].index(st.session_state.get("grade", 7)))
 all_topics = content.list_topics(grade)

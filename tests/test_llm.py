@@ -5,7 +5,7 @@ import importlib
 import sys
 import types
 from contextlib import AbstractContextManager
-from typing import Any, Protocol, cast
+from typing import Any, Iterable, Protocol, cast
 
 import httpx
 import pytest
@@ -21,7 +21,8 @@ except ModuleNotFoundError:  # pragma: no cover - executed in CI without pypdf
     setattr(fake_pypdf, "PdfReader", object)
     sys.modules.setdefault("pypdf", fake_pypdf)
 
-from llm.deepseek import DeepSeekProvider
+from llm import deepseek
+from llm.deepseek import DeepSeekChatClient, DeepSeekDiagnosticRun, DeepSeekProvider
 from services.content import get_store
 from services.models import LLMFeedbackRequest
 from services.question_bank import CurriculumQuestionBankBuilder
@@ -133,3 +134,69 @@ def test_question_bank_health_check_logs_cause(tmp_path, caplog) -> None:
     assert "DeepSeek-hälsokontrollen misslyckades" in str(exc_info.value)
     assert any("DummyCauseError" in message for message in caplog.messages)
     assert not builder._health_check_completed
+
+
+def test_deepseek_diagnostic_runs_stop_after_failure() -> None:
+    class DummyDiagnosticClient(DeepSeekChatClient):
+        def __init__(self) -> None:
+            super().__init__(api_key="test-key", base_url="https://mocked")
+            self._outcomes: list[str | Exception] = [
+                "Första svaret",
+                RuntimeError("misslyckades"),
+                "Ej använd",  # säkerställ att vi skulle ha fler värden vid behov
+            ]
+
+        async def complete(
+            self,
+            messages: Iterable[dict[str, str]],
+            *,
+            max_tokens: int = 350,
+            temperature: float = 0.7,
+        ) -> str:
+            assert messages, "diagnostik skickar alltid meddelanden"
+            outcome = self._outcomes.pop(0)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+    async def _run() -> None:
+        client = DummyDiagnosticClient()
+        results = await client.diagnostic_runs([1, 2, 3], max_tokens=128)
+        assert [result.prompt_repeats for result in results] == [1, 2]
+        assert all(isinstance(result, DeepSeekDiagnosticRun) for result in results)
+        assert results[0].success
+        assert not results[1].success
+        assert "misslyckades" in (results[1].error or "")
+
+    asyncio.run(_run())
+
+
+def test_run_diagnostic_load_test_supports_legacy_clients() -> None:
+    class LegacyClient:
+        def __init__(self) -> None:
+            self.calls: list[tuple[int, float]] = []
+
+        async def complete(
+            self,
+            messages: Iterable[dict[str, str]],
+            *,
+            max_tokens: int = 350,
+            temperature: float = 0.7,
+        ) -> str:
+            self.calls.append((max_tokens, temperature))
+            assert messages, "diagnostiken ska alltid ha meddelanden"
+            return "Svar från legacy-klient"
+
+    async def _run() -> None:
+        client = LegacyClient()
+        results = await deepseek.run_diagnostic_load_test(
+            client,
+            [1, 2],
+            max_tokens=256,
+            temperature=0.3,
+        )
+        assert len(results) == 2
+        assert all(result.success for result in results)
+        assert client.calls == [(256, 0.3), (256, 0.3)]
+
+    asyncio.run(_run())
