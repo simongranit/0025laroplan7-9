@@ -21,6 +21,7 @@ except ModuleNotFoundError:  # pragma: no cover - executed in CI without pypdf
     setattr(fake_pypdf, "PdfReader", object)
     sys.modules.setdefault("pypdf", fake_pypdf)
 
+from llm import deepseek
 from llm.deepseek import DeepSeekChatClient, DeepSeekDiagnosticRun, DeepSeekProvider
 from services.content import get_store
 from services.models import LLMFeedbackRequest
@@ -166,5 +167,36 @@ def test_deepseek_diagnostic_runs_stop_after_failure() -> None:
         assert results[0].success
         assert not results[1].success
         assert "misslyckades" in (results[1].error or "")
+
+    asyncio.run(_run())
+
+
+def test_run_diagnostic_load_test_supports_legacy_clients() -> None:
+    class LegacyClient:
+        def __init__(self) -> None:
+            self.calls: list[tuple[int, float]] = []
+
+        async def complete(
+            self,
+            messages: Iterable[dict[str, str]],
+            *,
+            max_tokens: int = 350,
+            temperature: float = 0.7,
+        ) -> str:
+            self.calls.append((max_tokens, temperature))
+            assert messages, "diagnostiken ska alltid ha meddelanden"
+            return "Svar från legacy-klient"
+
+    async def _run() -> None:
+        client = LegacyClient()
+        results = await deepseek.run_diagnostic_load_test(
+            client,
+            [1, 2],
+            max_tokens=256,
+            temperature=0.3,
+        )
+        assert len(results) == 2
+        assert all(result.success for result in results)
+        assert client.calls == [(256, 0.3), (256, 0.3)]
 
     asyncio.run(_run())

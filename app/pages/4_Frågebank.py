@@ -5,7 +5,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from llm.deepseek import get_chat_client
+from llm.deepseek import get_chat_client, run_diagnostic_load_test
 from services import content
 from services.question_bank import (
     GENERATED_DIR,
@@ -91,6 +91,8 @@ with st.expander("Utökad anslutningsdiagnos", expanded=False):
             with st.spinner("Kör diagnostik..."):
                 try:
                     results = asyncio.run(
+                        run_diagnostic_load_test(
+                            client,
                         client.diagnostic_runs(
                             prompt_repeats,
                             max_tokens=diag_max_tokens,
