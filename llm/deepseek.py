@@ -2,12 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import Awaitable, Callable, Iterable
 from collections.abc import Iterable
-from dataclasses import dataclass
 from typing import Any
-
-from time import perf_counter
 
 import httpx
 
@@ -17,6 +13,7 @@ from .base import LLMProvider, NullLLMProvider
 from .deepseek_diagnostics import (
     DeepSeekDiagnosticRun,
     run_diagnostic_load_test,
+    run_diagnostic_sequence,
 )
 
 PROMPT_TEMPLATE = """Du är en hjälpsam mattelärare. Eleven har svarat på en fråga.
@@ -27,85 +24,12 @@ Förklara steg för steg på svenska (max 120 ord) och uppmuntra eleven.
 """
 
 
-@dataclass(slots=True)
-class DeepSeekDiagnosticRun:
-    """Result information from a diagnostic DeepSeek invocation."""
-
-    prompt_repeats: int
-    max_tokens: int
-    duration: float
-    success: bool
-    error: str | None = None
-    response_preview: str | None = None
-
-
 def _render_prompt(request: LLMFeedbackRequest) -> str:
     return PROMPT_TEMPLATE.format(
         question_stem=request.question.stem,
         student_answer=request.student_answer,
         correct_answer=request.question.answer,
     )
-
-
-CompleteFn = Callable[
-    [Iterable[dict[str, str]]], Awaitable[str]
-]
-
-
-async def _run_diagnostic_load_test(
-    complete: CompleteFn,
-    prompt_repeats: Iterable[int],
-    *,
-    max_tokens: int = 512,
-    temperature: float = 0.0,
-) -> list[DeepSeekDiagnosticRun]:
-    """Run progressively heavier prompts with the provided completion callable."""
-
-    base_instruction = (
-        "Du är en hjälpsam mattelärare. Förklara resonemangen för varje uppgift nedan.\n\n"
-    )
-    sample_problem = (
-        "Problem: Beräkna 12 * 18 och redovisa alla steg.\n"
-        "Problem: Lös ekvationen 3x + 5 = 23 och motivera lösningen.\n"
-    )
-    results: list[DeepSeekDiagnosticRun] = []
-    for repeats in prompt_repeats:
-        prompt_body = sample_problem * max(repeats, 1)
-        messages = [
-            {"role": "system", "content": "Du är en hjälpsam mattelärare."},
-            {"role": "user", "content": base_instruction + prompt_body},
-        ]
-        start = perf_counter()
-        try:
-            response = await complete(
-                messages,
-                max_tokens=max_tokens,
-                temperature=temperature,
-            )
-        except Exception as exc:  # noqa: BLE001 - propagate diagnostic info
-            duration = perf_counter() - start
-            results.append(
-                DeepSeekDiagnosticRun(
-                    prompt_repeats=repeats,
-                    max_tokens=max_tokens,
-                    duration=duration,
-                    success=False,
-                    error=str(exc),
-                )
-            )
-            break
-        duration = perf_counter() - start
-        preview = response.strip()
-        results.append(
-            DeepSeekDiagnosticRun(
-                prompt_repeats=repeats,
-                max_tokens=max_tokens,
-                duration=duration,
-                success=True,
-                response_preview=preview[:200] if preview else None,
-            )
-        )
-    return results
 
 
 class DeepSeekChatClient:
@@ -209,7 +133,7 @@ class DeepSeekChatClient:
         temperature: float = 0.0,
     ) -> list[DeepSeekDiagnosticRun]:
         """Run progressively heavier prompts to gauge response characteristics."""
-        return await _run_diagnostic_load_test(
+        return await run_diagnostic_sequence(
             self.complete,
             prompt_repeats,
             max_tokens=max_tokens,
@@ -258,43 +182,6 @@ def get_chat_client() -> DeepSeekChatClient | None:
         return None
     base_url = os.getenv("DEEPSEEK_API_BASE_URL", "").strip() or None
     return DeepSeekChatClient(api_key, base_url=base_url)
-
-
-async def run_diagnostic_load_test(
-    client: Any,
-    prompt_repeats: Iterable[int],
-    *,
-    max_tokens: int = 512,
-    temperature: float = 0.0,
-) -> list[DeepSeekDiagnosticRun]:
-    """Run the diagnostic sequence against any DeepSeek-like client.
-
-    Falls back to the client's ``complete`` coroutine when ``diagnostic_runs`` is
-    not available (e.g. on legacy instances).
-    """
-
-    if hasattr(client, "diagnostic_runs"):
-        diagnostic = getattr(client, "diagnostic_runs")
-        if callable(diagnostic):
-            return await diagnostic(  # type: ignore[misc]
-                prompt_repeats,
-                max_tokens=max_tokens,
-                temperature=temperature,
-            )
-
-    if not hasattr(client, "complete"):
-        raise AttributeError("DeepSeek-klienten saknar stöd för anslutningsdiagnos.")
-
-    complete = getattr(client, "complete")
-    if not callable(complete):  # pragma: no cover - defensive guard
-        raise TypeError("DeepSeek-klientens 'complete'-attribut är inte anropbart.")
-
-    return await _run_diagnostic_load_test(
-        complete,  # type: ignore[arg-type]
-        prompt_repeats,
-        max_tokens=max_tokens,
-        temperature=temperature,
-    )
 
 
 def _describe_exception(exc: BaseException) -> str:
