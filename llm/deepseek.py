@@ -37,9 +37,9 @@ class DeepSeekChatClient:
         self,
         api_key: str,
         base_url: str | None = None,
-        timeout: float = 12.0,
-        max_retries: int = 2,
-        retry_backoff: float = 1.5,
+        timeout: float = 60.0,
+        max_retries: int = 3,
+        retry_backoff: float = 2.0,
     ) -> None:
         if not api_key:
             raise ValueError("DeepSeek API key is required")
@@ -146,9 +146,9 @@ class DeepSeekProvider(LLMProvider):
         self,
         api_key: str,
         base_url: str | None = None,
-        timeout: float = 12.0,
-        max_retries: int = 2,
-        retry_backoff: float = 1.5,
+        timeout: float = 60.0,
+        max_retries: int = 3,
+        retry_backoff: float = 2.0,
     ) -> None:
         self.client = DeepSeekChatClient(
             api_key=api_key,

@@ -54,7 +54,7 @@ class DeepSeekQuestionGenerator:
         curriculum_outline: str | None,
         *,
         temperature: float = 0.6,
-        max_tokens: int = 1800,
+        max_tokens: int = 1200,
     ) -> list[Question]:
         prompt = self._build_prompt(grade, topics, length, difficulty_mix, curriculum_outline)
         self._debug_info = GenerationDebugInfo(prompt=prompt)
@@ -68,6 +68,7 @@ class DeepSeekQuestionGenerator:
             ],
             max_tokens=max_tokens,
             temperature=temperature,
+            timeout = 45.0
         )
         if self._debug_info is not None:
             self._debug_info.raw_response = response
