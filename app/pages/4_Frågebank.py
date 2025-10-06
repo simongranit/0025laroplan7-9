@@ -19,7 +19,8 @@ st.write(
     "Frågorna sparas lokalt och kan återanvändas vid framtida körningar."
 )
 
-client_available = get_chat_client() is not None
+client = get_chat_client()
+client_available = client is not None
 if not client_available:
     st.warning(
         "DeepSeek är inte konfigurerat ännu. Sätt `DEEPSEEK_API_KEY` för att kunna "
@@ -27,7 +28,6 @@ if not client_available:
     )
 
 if st.button("Testa DeepSeek-anslutning", disabled=not client_available):
-    client = get_chat_client()
     if client is None:
         st.error("DeepSeek-klienten kunde inte initieras.")
     else:
@@ -94,6 +94,7 @@ with st.expander("Utökad anslutningsdiagnos", expanded=False):
                     results = asyncio.run(
                         run_diagnostic_load_test(
                             client,
+                        client.diagnostic_runs(
                             prompt_repeats,
                             max_tokens=diag_max_tokens,
                             temperature=diag_temperature,
