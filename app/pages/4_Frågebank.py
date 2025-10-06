@@ -93,6 +93,7 @@ with st.expander("Utökad anslutningsdiagnos", expanded=False):
                     results = asyncio.run(
                         run_diagnostic_load_test(
                             client,
+                        client.diagnostic_runs(
                             prompt_repeats,
                             max_tokens=diag_max_tokens,
                             temperature=diag_temperature,

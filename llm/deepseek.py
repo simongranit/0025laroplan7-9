@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -210,6 +211,52 @@ class DeepSeekChatClient:
             max_tokens=max_tokens,
             temperature=temperature,
         )
+
+        base_instruction = (
+            "Du är en hjälpsam mattelärare. Förklara resonemangen för varje uppgift nedan.\n\n"
+        )
+        sample_problem = (
+            "Problem: Beräkna 12 * 18 och redovisa alla steg.\n"
+            "Problem: Lös ekvationen 3x + 5 = 23 och motivera lösningen.\n"
+        )
+        results: list[DeepSeekDiagnosticRun] = []
+        for repeats in prompt_repeats:
+            prompt_body = sample_problem * max(repeats, 1)
+            messages = [
+                {"role": "system", "content": "Du är en hjälpsam mattelärare."},
+                {"role": "user", "content": base_instruction + prompt_body},
+            ]
+            start = perf_counter()
+            try:
+                response = await self.complete(
+                    messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+            except Exception as exc:  # noqa: BLE001 - propagate diagnostic info
+                duration = perf_counter() - start
+                results.append(
+                    DeepSeekDiagnosticRun(
+                        prompt_repeats=repeats,
+                        max_tokens=max_tokens,
+                        duration=duration,
+                        success=False,
+                        error=str(exc),
+                    )
+                )
+                break
+            duration = perf_counter() - start
+            preview = response.strip()
+            results.append(
+                DeepSeekDiagnosticRun(
+                    prompt_repeats=repeats,
+                    max_tokens=max_tokens,
+                    duration=duration,
+                    success=True,
+                    response_preview=preview[:200] if preview else None,
+                )
+            )
+        return results
 
 
 class DeepSeekProvider(LLMProvider):
