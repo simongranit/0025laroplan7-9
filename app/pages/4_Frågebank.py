@@ -85,16 +85,15 @@ with st.expander("Utökad anslutningsdiagnos", expanded=False):
         + ", ".join(str(value) for value in prompt_repeats)
     )
     if st.button("Kör utökad anslutningsdiagnos", disabled=not client_available, key="run_diag"):
-        client = get_chat_client()
-        if client is None:
+        diagnostic_client = get_chat_client()
+        if diagnostic_client is None:
             st.error("DeepSeek-klienten kunde inte initieras.")
         else:
             with st.spinner("Kör diagnostik..."):
                 try:
                     results = asyncio.run(
                         run_diagnostic_load_test(
-                            client,
-                        client.diagnostic_runs(
+                            diagnostic_client,
                             prompt_repeats,
                             max_tokens=diag_max_tokens,
                             temperature=diag_temperature,
