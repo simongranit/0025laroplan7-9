@@ -55,8 +55,9 @@ class DeepSeekChatClient:
         *,
         max_tokens: int = 350,
         temperature: float = 0.7,
+        timeout: float | None = None,
     ) -> str:
-        timeout = httpx.Timeout(self.timeout)
+        timeout_config = httpx.Timeout(self.timeout if timeout is None else timeout)
         payload = {
             "model": "deepseek-chat",
             "messages": list(messages),
@@ -64,7 +65,7 @@ class DeepSeekChatClient:
             "temperature": temperature,
         }
         for attempt in range(self.max_retries + 1):
-            async with httpx.AsyncClient(timeout=timeout) as client:
+            async with httpx.AsyncClient(timeout=timeout_config) as client:
                 try:
                     response = await client.post(
                         self.base_url,
