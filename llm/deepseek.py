@@ -14,6 +14,11 @@ import httpx
 from services.models import LLMFeedbackRequest
 
 from .base import LLMProvider, NullLLMProvider
+from .deepseek_diagnostics import (
+    DeepSeekDiagnosticRun,
+    run_diagnostic_load_test,
+    run_diagnostic_sequence,
+)
 
 PROMPT_TEMPLATE = """Du är en hjälpsam mattelärare. Eleven har svarat på en fråga.
 Fråga: {question_stem}
@@ -205,6 +210,7 @@ class DeepSeekChatClient:
         temperature: float = 0.0,
     ) -> list[DeepSeekDiagnosticRun]:
         """Run progressively heavier prompts to gauge response characteristics."""
+        return await run_diagnostic_sequence(
         return await _run_diagnostic_load_test(
             self.complete,
             prompt_repeats,

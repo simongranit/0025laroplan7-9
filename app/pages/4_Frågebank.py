@@ -85,6 +85,7 @@ with st.expander("Utökad anslutningsdiagnos", expanded=False):
         + ", ".join(str(value) for value in prompt_repeats)
     )
     if st.button("Kör utökad anslutningsdiagnos", disabled=not client_available, key="run_diag"):
+        client = get_chat_client()
         if client is None:
             st.error("DeepSeek-klienten kunde inte initieras.")
         else:
