@@ -68,7 +68,7 @@ class DeepSeekQuestionGenerator:
             ],
             max_tokens=max_tokens,
             temperature=temperature,
-            timeout = 45.0
+            timeout=45.0,
         )
         if self._debug_info is not None:
             self._debug_info.raw_response = response
